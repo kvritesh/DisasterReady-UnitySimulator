@@ -1,0 +1,333 @@
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using DisasterReady.UI;
+using DisasterReady.Emergency;
+
+namespace DisasterReady.EditorTools
+{
+    /// <summary>
+    /// Builds the full screen-space UI: title overlay, gameplay HUD (XP + mission
+    /// panel), terrain info readout, and the offline-simulation panel.
+    /// </summary>
+    internal static class UIBuilder
+    {
+        internal class UIResult
+        {
+            public TitleScreenController Title;
+            public HUDController Hud;
+            public TerrainInfoPanelController TerrainInfo;
+            public DisasterReady.Offline.OfflineDemoController Offline;
+            public MissionCompleteBanner Banner;
+            public Text EmergencyStatusText;
+            public GameObject EmergencyStatusPlate;
+            public Text SafeDirectionText;
+            public GameObject SafeDirectionPlate;
+            public PreparednessResultPanel ResultPanel;
+        }
+
+        private static Font _cachedFont;
+        public static Font GetDefaultFont()
+        {
+            if (_cachedFont != null) return _cachedFont;
+            _cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (_cachedFont == null) _cachedFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            return _cachedFont;
+        }
+
+        public static UIResult Build()
+        {
+            var canvasGO = new GameObject("UI_Root");
+            var canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasGO.AddComponent<GraphicRaycaster>();
+
+            var eventSystemGO = new GameObject("EventSystem");
+            eventSystemGO.AddComponent<EventSystem>();
+            eventSystemGO.AddComponent<InputSystemUIInputModule>();
+
+            var result = new UIResult();
+            BuildTitlePanel(canvas.transform, result);
+            BuildHudPanel(canvas.transform, result);
+
+            return result;
+        }
+
+        // ---------------------------------------------------------------
+        private static void BuildTitlePanel(Transform canvasT, UIResult result)
+        {
+            var panel = CreatePanel(canvasT, "TitlePanel", new Color(0.06f, 0.09f, 0.14f, 0.92f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            CreateText(panel.transform, "Title", "DISASTERREADY", 88, Color.white, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 190f), new Vector2(1200f, 120f), FontStyle.Bold);
+
+            CreateText(panel.transform, "Subtitle", "Offline Terrain Preparedness", 34, new Color(0.85f, 0.88f, 0.95f), TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 100f), new Vector2(1200f, 60f), FontStyle.Normal);
+
+            CreateText(panel.transform, "Tagline", "\"Explore. Prepare. Survive.\"", 24, new Color(0.9f, 0.75f, 0.45f), TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(1000f, 50f), FontStyle.Italic);
+
+            var button = CreateButton(panel.transform, "EnterButton", "ENTER AIZAWL, MIZORAM", new Color(0.82f, 0.42f, 0.15f),
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), new Vector2(440f, 76f));
+
+            var titleController = panel.AddComponent<TitleScreenController>();
+            titleController.RootPanel = panel;
+            titleController.EnterButton = button;
+            result.Title = titleController;
+        }
+
+        // ---------------------------------------------------------------
+        private static void BuildHudPanel(Transform canvasT, UIResult result)
+        {
+            var hudRoot = CreatePanel(canvasT, "HUDPanel", new Color(0, 0, 0, 0), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            hudRoot.SetActive(false);
+            var hudController = hudRoot.AddComponent<HUDController>();
+            hudController.RootPanel = hudRoot;
+
+            // --- Top-left title + XP ---
+            CreateText(hudRoot.transform, "GameTitle", "DISASTERREADY", 30, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(30f, -26f), new Vector2(420f, 40f), FontStyle.Bold);
+            CreateText(hudRoot.transform, "LocationLabel", "AIZAWL, MIZORAM", 20, new Color(0.85f, 0.75f, 0.5f), TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(30f, -60f), new Vector2(420f, 30f), FontStyle.Normal);
+            var xpText = CreateText(hudRoot.transform, "XpText", "XP: 0 / 300", 24, new Color(0.6f, 0.95f, 0.6f), TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(30f, -92f), new Vector2(420f, 36f), FontStyle.Bold);
+            hudController.XpText = xpText;
+
+            // --- Mission panel ---
+            var missionPanel = CreatePanel(hudRoot.transform, "MissionPanel", new Color(0.05f, 0.06f, 0.09f, 0.72f),
+                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(30f, -286f), new Vector2(450f, -136f));
+            var missionTitle = CreateText(missionPanel.transform, "MissionTitle", "CURRENT MISSION", 20, new Color(0.9f, 0.75f, 0.45f), TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -14f), new Vector2(-16f, 30f), FontStyle.Bold);
+            var missionDesc = CreateText(missionPanel.transform, "MissionDescription", "Loading missions...", 18, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -48f), new Vector2(-16f, 80f), FontStyle.Normal);
+            hudController.MissionTitleText = missionTitle;
+            hudController.MissionDescriptionText = missionDesc;
+
+            // --- Bottom-left demo tag ---
+            CreateText(hudRoot.transform, "DemoTag", "DEMO BUILD • OFFLINE MODE", 16, new Color(0.7f, 0.72f, 0.76f), TextAnchor.LowerLeft,
+                new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(30f, 22f), new Vector2(420f, 26f), FontStyle.Italic);
+
+            // --- Terrain info panel (bottom-right) ---
+            var terrainPanel = CreatePanel(hudRoot.transform, "TerrainInfoPanel", new Color(0.05f, 0.06f, 0.09f, 0.72f),
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-330f, 20f), new Vector2(-20f, 160f));
+            var elevText = CreateText(terrainPanel.transform, "ElevationText", "Elevation: -- m", 18, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -12f), new Vector2(-14f, 26f), FontStyle.Normal);
+            var slopeText = CreateText(terrainPanel.transform, "SlopeText", "Slope: --°", 18, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -40f), new Vector2(-14f, 26f), FontStyle.Normal);
+            var catText = CreateText(terrainPanel.transform, "CategoryText", "Terrain: --", 18, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -68f), new Vector2(-14f, 26f), FontStyle.Normal);
+            var sourceText = CreateText(terrainPanel.transform, "SourceLabel", "DEMONSTRATION TERRAIN — PROTOTYPE DATA", 12, new Color(0.65f, 0.67f, 0.7f), TextAnchor.LowerLeft,
+                new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(14f, 10f), new Vector2(-14f, 32f), FontStyle.Italic);
+
+            var terrainInfo = hudRoot.AddComponent<TerrainInfoPanelController>();
+            terrainInfo.ElevationText = elevText;
+            terrainInfo.SlopeText = slopeText;
+            terrainInfo.CategoryText = catText;
+            terrainInfo.SourceLabelText = sourceText;
+            result.TerrainInfo = terrainInfo;
+
+            // --- Offline panel (top-right) ---
+            var offlinePanel = CreatePanel(hudRoot.transform, "OfflinePanel", new Color(0.05f, 0.06f, 0.09f, 0.72f),
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-330f, -190f), new Vector2(-20f, -20f));
+            var readyBadge = CreateText(offlinePanel.transform, "ReadyBadge", "OFFLINE READY", 18, new Color(0.5f, 0.9f, 0.55f), TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -12f), new Vector2(-14f, 26f), FontStyle.Bold);
+            var statusHeadline = CreateText(offlinePanel.transform, "StatusHeadline", "", 18, new Color(0.95f, 0.8f, 0.4f), TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -40f), new Vector2(-14f, 24f), FontStyle.Bold);
+            var line1 = CreateText(offlinePanel.transform, "StatusLine1", "", 14, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -66f), new Vector2(-14f, 20f), FontStyle.Normal);
+            var line2 = CreateText(offlinePanel.transform, "StatusLine2", "", 14, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -86f), new Vector2(-14f, 20f), FontStyle.Normal);
+            var line3 = CreateText(offlinePanel.transform, "StatusLine3", "", 14, Color.white, TextAnchor.UpperLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -106f), new Vector2(-14f, 20f), FontStyle.Normal);
+            var simButton = CreateButton(offlinePanel.transform, "SimulateButton", "SIMULATE NO INTERNET", new Color(0.25f, 0.3f, 0.4f),
+                new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(290f, 40f));
+            var simButtonLabel = simButton.GetComponentInChildren<Text>();
+
+            var offline = offlinePanel.AddComponent<DisasterReady.Offline.OfflineDemoController>();
+            offline.ReadyBadgeText = readyBadge;
+            offline.StatusHeadline = statusHeadline;
+            offline.StatusLine1 = line1;
+            offline.StatusLine2 = line2;
+            offline.StatusLine3 = line3;
+            offline.SimulateButton = simButton;
+            offline.SimulateButtonLabel = simButtonLabel;
+            result.Offline = offline;
+
+            // --- Mission complete / alert banner (center). A thin accent bar along
+            // the top recolours per event (gold for routine mission-complete, a more
+            // urgent tone when EmergencyScenarioController uses it for the emergency
+            // trigger) so the banner itself communicates hierarchy at a glance. ---
+            var bannerGO = CreatePanel(hudRoot.transform, "MissionCompleteBanner", new Color(0.08f, 0.08f, 0.09f, 0.88f),
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-360f, 55f), new Vector2(360f, 165f));
+            var bannerGroup = bannerGO.AddComponent<CanvasGroup>();
+            bannerGroup.alpha = 0f;
+            bannerGroup.blocksRaycasts = false;
+            var bannerAccentGO = CreatePanel(bannerGO.transform, "AccentBar", new Color(1f, 0.85f, 0.4f),
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -5f), new Vector2(0f, 0f));
+            var bannerText = CreateText(bannerGO.transform, "BannerText", "MISSION COMPLETE", 28, new Color(1f, 0.85f, 0.4f), TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.one, new Vector2(0f, -6f), Vector2.zero, FontStyle.Bold);
+            var banner = bannerGO.AddComponent<MissionCompleteBanner>();
+            banner.Group = bannerGroup;
+            banner.Label = bannerText;
+            banner.AccentBar = bannerAccentGO.GetComponent<Image>();
+            result.Banner = banner;
+
+            // --- Emergency status banner (top-center, hidden until the emergency
+            // triggers). Its own dark plate + bright underline keeps it readable
+            // against bright sky/terrain regardless of what's behind it, and gives
+            // it clear visual priority over the rest of the HUD without resorting
+            // to a full red-screen effect. ---
+            var emergencyPlate = CreatePanel(hudRoot.transform, "EmergencyStatusPlate", new Color(0.1f, 0.03f, 0.02f, 0.8f),
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-460f, -80f), new Vector2(460f, -20f));
+            emergencyPlate.SetActive(false);
+            CreatePanel(emergencyPlate.transform, "Underline", new Color(1f, 0.4f, 0.25f),
+                new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(0f, 3f));
+            var emergencyTag = CreateText(emergencyPlate.transform, "EmergencyStatusTag", "", 22, new Color(1f, 0.5f, 0.35f), TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.one, new Vector2(0f, 3f), new Vector2(-24f, -12f), FontStyle.Bold);
+            result.EmergencyStatusText = emergencyTag;
+            result.EmergencyStatusPlate = emergencyPlate;
+
+            // --- Safe-direction heuristic readout (bottom-center, hidden until
+            // active). The left-edge swatch is the same colour as the world-space
+            // arrow, so the HUD text and the arrow read as one connected signal. ---
+            var safeDirPlate = CreatePanel(hudRoot.transform, "SafeDirectionPlate", new Color(0.07f, 0.06f, 0.03f, 0.82f),
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(-340f, 88f), new Vector2(340f, 156f));
+            safeDirPlate.SetActive(false);
+            CreatePanel(safeDirPlate.transform, "ArrowSwatch", new Color(0.95f, 0.78f, 0.2f),
+                new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(6f, 0f));
+            var safeDirText = CreateText(safeDirPlate.transform, "SafeDirectionText", "", 19, new Color(0.98f, 0.85f, 0.45f), TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-16f, -12f), FontStyle.Bold);
+            result.SafeDirectionText = safeDirText;
+            result.SafeDirectionPlate = safeDirPlate;
+
+            // --- Preparedness result panel (center, larger than the mission-complete
+            // banner). A green top accent bar and a divider between the headline
+            // block and the stat lines are the only additions here - same data,
+            // presented as a deliberate completion screen instead of a plain list. ---
+            var resultRoot = CreatePanel(hudRoot.transform, "PreparednessResultPanel", new Color(0.05f, 0.07f, 0.06f, 0.95f),
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-430f, -230f), new Vector2(430f, 230f));
+            resultRoot.SetActive(false);
+            var resultGroup = resultRoot.AddComponent<CanvasGroup>();
+            resultGroup.alpha = 0f;
+            resultGroup.blocksRaycasts = false;
+
+            CreatePanel(resultRoot.transform, "TopAccent", new Color(0.55f, 0.9f, 0.55f),
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -5f), new Vector2(0f, 0f));
+
+            var headline = CreateText(resultRoot.transform, "Headline", "", 30, new Color(0.6f, 0.95f, 0.6f), TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -54f), new Vector2(780f, 50f), FontStyle.Bold);
+            var scoreText = CreateText(resultRoot.transform, "ScoreText", "", 42, new Color(1f, 0.85f, 0.4f), TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -118f), new Vector2(780f, 58f), FontStyle.Bold);
+
+            CreatePanel(resultRoot.transform, "StatsDivider", new Color(1f, 1f, 1f, 0.12f),
+                new Vector2(0.14f, 1f), new Vector2(0.86f, 1f), new Vector2(0f, -172f), new Vector2(0f, -170f));
+
+            var missionsText = CreateText(resultRoot.transform, "MissionsText", "", 20, Color.white, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -198f), new Vector2(780f, 30f), FontStyle.Normal);
+            var resultXpText = CreateText(resultRoot.transform, "XpText", "", 20, Color.white, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -230f), new Vector2(780f, 30f), FontStyle.Normal);
+            var emergencyText = CreateText(resultRoot.transform, "EmergencyText", "", 20, new Color(0.6f, 0.95f, 0.6f), TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -264f), new Vector2(780f, 30f), FontStyle.Bold);
+            var disclaimerText = CreateText(resultRoot.transform, "DisclaimerText", "", 14, new Color(0.7f, 0.72f, 0.76f), TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(780f, 50f), FontStyle.Italic);
+
+            var resultPanel = resultRoot.AddComponent<PreparednessResultPanel>();
+            resultPanel.RootPanel = resultRoot;
+            resultPanel.Group = resultGroup;
+            resultPanel.HeadlineText = headline;
+            resultPanel.ScoreText = scoreText;
+            resultPanel.MissionsText = missionsText;
+            resultPanel.XpText = resultXpText;
+            resultPanel.EmergencyText = emergencyText;
+            resultPanel.DisclaimerText = disclaimerText;
+            result.ResultPanel = resultPanel;
+
+            result.Hud = hudController;
+        }
+
+        // ---------------------------------------------------------------
+        // Low-level helpers
+        // ---------------------------------------------------------------
+        private static GameObject CreatePanel(Transform parent, string name, Color bgColor, Vector2 anchorMin, Vector2 anchorMax, Vector2 anchoredMin, Vector2 anchoredMax)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.offsetMin = anchoredMin;
+            rt.offsetMax = anchoredMax;
+            if (bgColor.a > 0f)
+            {
+                var img = go.AddComponent<Image>();
+                img.color = bgColor;
+            }
+            return go;
+        }
+
+        private static Text CreateText(Transform parent, string name, string text, int fontSize, Color color, TextAnchor alignment,
+            Vector2 anchorMin, Vector2 anchorMax, Vector2 anchoredPosition, Vector2 sizeDelta, FontStyle style)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = anchoredPosition;
+            rt.sizeDelta = sizeDelta;
+
+            var txt = go.AddComponent<Text>();
+            txt.text = text;
+            txt.font = GetDefaultFont();
+            txt.fontSize = fontSize;
+            txt.color = color;
+            txt.alignment = alignment;
+            txt.fontStyle = style;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.verticalOverflow = VerticalWrapMode.Overflow;
+            return txt;
+        }
+
+        private static Button CreateButton(Transform parent, string name, string label, Color bgColor, Vector2 anchor, Vector2 anchoredPosition, Vector2 sizeDelta)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = anchoredPosition;
+            rt.sizeDelta = sizeDelta;
+
+            var img = go.AddComponent<Image>();
+            img.color = bgColor;
+            var button = go.AddComponent<Button>();
+            var colors = button.colors;
+            colors.highlightedColor = bgColor * 1.2f;
+            colors.pressedColor = bgColor * 0.8f;
+            button.colors = colors;
+
+            var textGO = new GameObject("Label", typeof(RectTransform));
+            textGO.transform.SetParent(go.transform, false);
+            var textRt = textGO.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero; textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero; textRt.offsetMax = Vector2.zero;
+            var txt = textGO.AddComponent<Text>();
+            txt.text = label;
+            txt.font = GetDefaultFont();
+            txt.fontSize = 20;
+            txt.color = Color.white;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.fontStyle = FontStyle.Bold;
+
+            return button;
+        }
+    }
+}
