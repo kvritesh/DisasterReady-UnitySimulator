@@ -1,0 +1,19 @@
+<!--
+  IL2CPP/engine-code stripping preservation.
+
+  ProjectSettings has stripEngineCode enabled. Nothing in our own scripts
+  references UnityEngine.CapsuleCollider directly (SceneBuilder/EnvironmentBuilder
+  use CharacterController + Box/Sphere colliders only), so the WebGL/IL2CPP
+  stripper removes the CapsuleCollider class entirely. Something in Unity's
+  built-in modules (terrain physics / navigation tooling, both referenced via
+  Packages/manifest.json) still expects it to exist at runtime, which produced:
+  "Can't add component because class 'CapsuleCollider' doesn't exist!" at boot.
+
+  This preserves only that one class from stripping - no broader stripping
+  settings are changed.
+-->
+<linker>
+  <assembly fullname="UnityEngine.PhysicsModule">
+    <type fullname="UnityEngine.CapsuleCollider" preserve="all" />
+  </assembly>
+</linker>
