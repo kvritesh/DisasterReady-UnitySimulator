@@ -1,0 +1,40 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.5/staging' branch; Version is '6000.5.10f1 (3bd4f66ad299) revision 3921142'; Using compiler version '194234433'; Build Type 'Release'
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-kvrit" at "2026-09-05T14:11:40.5566038Z"
+OS: 'Windows 11  (10.0.26200) Core' Language: 'en' Physical Memory: 16087 MB
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+System  architecture: x64
+Process architecture: x64
+Date: 2026-09-05T14:11:40Z
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 24888, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              6e5c8c9d8c99418f9b7f4ede5a925f96
+  Correlation Id:          d62fab9cd575a691ef5549a4498d6e55
+  External correlation Id: 3558665703502592151
+  Machine Id:              b3BBX6JOt4zaqLzIqxYEexijzO0=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-kvrit" (connect: 0.00s, validation: 0.00s, handshake: 0.05s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-kvrit-notifications" at "2026-09-05T14:11:40.6115303Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 13469962863621-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.06s
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.5.10f1\Editor\Unity.exe
+-batchmode
+-quit
+-projectPath
+C:\unityprojects\DisasterReady
+-logFile
+C:\unityprojects\DisasterReady\test_batch.log
+Successfully changed project path to: C:\unityprojects\DisasterReady
+C:/unityprojects/DisasterReady
+Exiting without the bug reporter. Application will terminate with return code 1

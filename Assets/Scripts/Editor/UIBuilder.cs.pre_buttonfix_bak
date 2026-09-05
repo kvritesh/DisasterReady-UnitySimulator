@@ -2,7 +2,6 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using DisasterReady.UI;
 using DisasterReady.Emergency;
@@ -62,8 +61,7 @@ namespace DisasterReady.EditorTools
 
             var eventSystemGO = new GameObject("EventSystem");
             eventSystemGO.AddComponent<EventSystem>();
-            var uiInputModule = eventSystemGO.AddComponent<InputSystemUIInputModule>();
-            AssignPersistentDefaultUIActions(uiInputModule);
+            eventSystemGO.AddComponent<InputSystemUIInputModule>();
 
             var result = new UIResult();
             BuildTitlePanel(canvas.transform, result);
@@ -308,59 +306,6 @@ namespace DisasterReady.EditorTools
             return txt;
         }
 
-        /// <summary>
-        /// Root-cause fix (button-click diagnosis): InputSystemUIInputModule.AssignDefaultActions()
-        /// builds Unity's built-in DefaultInputActions wrapper, which constructs its
-        /// InputActionAsset IN MEMORY at runtime rather than loading a project asset file. Actions
-        /// created from that transient asset get serialized INLINE into the scene as scene-local
-        /// objects (visible in the .unity YAML as bare "{fileID: N}" references with no "guid:" -
-        /// i.e. not references to any asset on disk). That inline copy does not reliably bind to
-        /// real mouse/keyboard input, so hover and clicks silently never fire even though the
-        /// Inspector shows what looks like a valid "DefaultInputActions" assignment.
-        ///
-        /// Fix: load the actual persistent DefaultInputActions.inputactions asset that ships with
-        /// the installed Input System package (via its Packages/ virtual path, so it resolves
-        /// regardless of the physical PackageCache folder name) and assign its real, on-disk
-        /// InputActionReference sub-assets. This makes the scene serialize proper guid+fileID
-        /// references, matching how a correctly-wired scene looks.
-        /// </summary>
-        private static void AssignPersistentDefaultUIActions(InputSystemUIInputModule module)
-        {
-            const string DefaultActionsPath = "Packages/com.unity.inputsystem/InputSystem/Runtime/Plugins/PlayerInput/DefaultInputActions.inputactions";
-
-            var asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(DefaultActionsPath);
-            if (asset == null)
-            {
-                Debug.LogWarning($"[UIBuilder] Could not load '{DefaultActionsPath}' - UI hover/click input will not work.");
-                return;
-            }
-
-            module.actionsAsset = asset;
-
-            var subAssets = AssetDatabase.LoadAllAssetsAtPath(DefaultActionsPath);
-            InputActionReference FindAction(string actionName)
-            {
-                foreach (var sub in subAssets)
-                {
-                    if (sub is InputActionReference actionRef && actionRef.name == actionName)
-                        return actionRef;
-                }
-                Debug.LogWarning($"[UIBuilder] Could not find persistent action reference '{actionName}' in '{DefaultActionsPath}'.");
-                return null;
-            }
-
-            module.point = FindAction("UI/Point");
-            module.leftClick = FindAction("UI/Click");
-            module.middleClick = FindAction("UI/MiddleClick");
-            module.rightClick = FindAction("UI/RightClick");
-            module.scrollWheel = FindAction("UI/ScrollWheel");
-            module.move = FindAction("UI/Navigate");
-            module.submit = FindAction("UI/Submit");
-            module.cancel = FindAction("UI/Cancel");
-            module.trackedDevicePosition = FindAction("UI/TrackedDevicePosition");
-            module.trackedDeviceOrientation = FindAction("UI/TrackedDeviceOrientation");
-        }
-
         private static Button CreateButton(Transform parent, string name, string label, Color bgColor, Vector2 anchor, Vector2 anchoredPosition, Vector2 sizeDelta)
         {
             var go = new GameObject(name, typeof(RectTransform));
@@ -373,24 +318,11 @@ namespace DisasterReady.EditorTools
             rt.sizeDelta = sizeDelta;
 
             var img = go.AddComponent<Image>();
-            // Button-hover-color fix: Unity's Selectable "Color Tint" transition multiplies
-            // colors.<state>Color against the target graphic's OWN color, it doesn't replace it.
-            // The previous code set img.color = bgColor (orange) AND set
-            // colors.highlightedColor = bgColor * 1.2f (also orange) - so the rendered hover
-            // color was orange * (orange * 1.2), i.e. squaring the channel values, which made it
-            // darker/muddier instead of the intended brighter highlight. Keeping the target
-            // graphic neutral white and putting the real per-state colors in the ColorBlock
-            // itself (multiplying against white = identity) makes normal/highlighted/pressed
-            // all read as designed.
-            img.color = Color.white;
+            img.color = bgColor;
             var button = go.AddComponent<Button>();
             var colors = button.colors;
-            colors.normalColor = bgColor;
-            colors.highlightedColor = Color.Lerp(bgColor, Color.white, 0.35f);
-            colors.pressedColor = bgColor * 0.75f;
-            colors.selectedColor = colors.highlightedColor;
-            colors.disabledColor = new Color(0.4f, 0.4f, 0.4f, 0.5f);
-            colors.colorMultiplier = 1.0f;
+            colors.highlightedColor = bgColor * 1.2f;
+            colors.pressedColor = bgColor * 0.8f;
             button.colors = colors;
 
             var textGO = new GameObject("Label", typeof(RectTransform));

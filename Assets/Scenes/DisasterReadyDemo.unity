@@ -3805,23 +3805,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DisasterReady.CameraSystem.OrbitCameraController
   Target: {fileID: 434955241}
-  TargetOffset: {x: 0, y: 1.55, z: 0}
-  YawSpeed: 150
-  PitchSpeed: 120
-  MinPitch: 12
-  MaxPitch: 75
+  TargetOffset: {x: 0, y: 1.8, z: 0}
+  YawSpeed: 140
+  PitchSpeed: 100
+  MinPitch: -10
+  MaxPitch: 65
   StartYaw: 0
-  StartPitch: 30
-  Distance: 11.5
-  MinDistance: 4
-  MaxDistance: 26
-  ZoomSpeed: 4
-  PositionSmoothing: 10
-  AutoFollowYaw: 1
-  AutoFollowSpeed: 3.2
-  AutoFollowResumeDelay: 0.5
-  ForwardDominantAngle: 100
-  IdleRecenterDelay: 0.6
+  StartPitch: 18
+  Distance: 6
+  MinDistance: 2.5
+  MaxDistance: 12
+  ZoomSpeed: 3.5
+  PositionSmoothing: 14
+  EnableCollision: 1
+  CollisionRadius: 0.25
+  CollisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  AutoFollowYaw: 0
   PlayerRef: {fileID: 434955248}
   ControlsEnabled: 1
 --- !u!4 &862277488

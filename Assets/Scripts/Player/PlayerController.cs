@@ -56,6 +56,14 @@ namespace DisasterReady.Player
             _controller = GetComponent<CharacterController>();
         }
 
+        private void Start()
+        {
+            if (CameraPivot == null && Camera.main != null)
+            {
+                CameraPivot = Camera.main.transform;
+            }
+        }
+
         private void Update()
         {
             if (!ControlsEnabled)
@@ -71,10 +79,15 @@ namespace DisasterReady.Player
             Vector2 input = ReadMoveInput();
             bool sprintPressed = ReadSprintInput();
 
-            Vector3 camForward = CameraPivot != null ? CameraPivot.forward : Vector3.forward;
-            Vector3 camRight = CameraPivot != null ? CameraPivot.right : Vector3.right;
-            camForward.y = 0f; camForward.Normalize();
-            camRight.y = 0f; camRight.Normalize();
+            Transform cam = CameraPivot;
+            if (cam == null && Camera.main != null) cam = Camera.main.transform;
+
+            Vector3 camForward = cam != null ? cam.forward : Vector3.forward;
+            Vector3 camRight = cam != null ? cam.right : Vector3.right;
+            camForward.y = 0f;
+            camRight.y = 0f;
+            camForward.Normalize();
+            camRight.Normalize();
 
             Vector3 moveDir = camForward * input.y + camRight * input.x;
             float inputMag = Mathf.Clamp01(moveDir.magnitude);
@@ -82,31 +95,31 @@ namespace DisasterReady.Player
             if (inputMag > 0.001f)
             {
                 _lastMoveDir = moveDir.normalized;
-                Quaternion targetRot = Quaternion.LookRotation(_lastMoveDir);
+                Quaternion targetRot = Quaternion.LookRotation(_lastMoveDir, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * TurnSmoothing);
             }
 
             bool isGrounded = _controller.isGrounded;
             if (isGrounded && _verticalVelocity < 0f)
             {
-                _verticalVelocity = -1f;
+                _verticalVelocity = -2.5f;
             }
 
-            // Grounded-only single jump. No double jump: this only fires while isGrounded is true,
-            // and isGrounded becomes false the instant the controller leaves the ground.
             if (isGrounded && ReadJumpInput())
             {
                 _verticalVelocity = Mathf.Sqrt(2f * JumpHeight * -Gravity);
             }
 
             _verticalVelocity += Gravity * Time.deltaTime;
+            _verticalVelocity = Mathf.Max(_verticalVelocity, -35f);
 
             float maxTargetSpeed = sprintPressed ? SprintSpeed : MoveSpeed;
             float targetSpeed = maxTargetSpeed * inputMag;
             float rate = targetSpeed > _currentGroundSpeed ? Acceleration : Deceleration;
             _currentGroundSpeed = Mathf.MoveTowards(_currentGroundSpeed, targetSpeed, rate * Time.deltaTime);
+            if (inputMag < 0.001f && _currentGroundSpeed < 0.05f) _currentGroundSpeed = 0f;
 
-            Vector3 velocity = (inputMag > 0.001f ? _lastMoveDir : _lastMoveDir) * _currentGroundSpeed;
+            Vector3 velocity = _lastMoveDir * _currentGroundSpeed;
             velocity.y = _verticalVelocity;
             _controller.Move(velocity * Time.deltaTime);
 

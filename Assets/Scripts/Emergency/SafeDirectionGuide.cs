@@ -173,13 +173,34 @@ namespace DisasterReady.Emergency
                 Vector3 dir = Quaternion.Euler(0f, angleDeg, 0f) * Vector3.forward;
                 Vector3 samplePos = origin + dir * SampleDistance;
 
-                if (!TerrainService.TryGetSample(samplePos, out var sample) || !sample.IsValid) continue;
+                float elevationGain = 0f;
+                float terrainQuality = 0f;
 
-                float elevationGain = sample.ElevationMeters - origin.y;
-                float terrainQuality = elevationGain - sample.SlopeDegrees * SlopePenaltyPerDegree;
+                if (TerrainService.TryGetSample(samplePos, out var sample) && sample.IsValid)
+                {
+                    elevationGain = sample.ElevationMeters - origin.y;
+                    terrainQuality = elevationGain - sample.SlopeDegrees * SlopePenaltyPerDegree;
+                }
+                else
+                {
+                    // Fallback for mesh-based terrain environments (Synty, modular tiles)
+                    if (Physics.Raycast(samplePos + Vector3.up * 50f, Vector3.down, out RaycastHit groundHit, 100f, ~LayerMask.GetMask("UI", "Ignore Raycast"), QueryTriggerInteraction.Ignore))
+                    {
+                        elevationGain = groundHit.point.y - origin.y;
+                        float slope = Vector3.Angle(groundHit.normal, Vector3.up);
+                        terrainQuality = elevationGain - slope * SlopePenaltyPerDegree;
+                    }
+                    else if (hasObjective)
+                    {
+                        terrainQuality = 0f;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
 
                 float objectiveAlignment = hasObjective ? Vector3.Dot(dir, towardObjective) : 0f;
-
                 float score = objectiveAlignment * ObjectiveWeight + terrainQuality * TerrainQualityWeight;
 
                 if (!found || score > bestScore)
