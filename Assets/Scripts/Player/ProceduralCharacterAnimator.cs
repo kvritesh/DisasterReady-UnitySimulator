@@ -42,6 +42,11 @@ namespace DisasterReady.Player
         public bool EnableFootstepAudio = true;
         [Range(0f, 1f)] public float FootstepVolume = 0.16f;
 
+        [Header("Footstep dust (optional, lightweight - never required)")]
+        [Tooltip("Small opaque low-poly puffs that pop at each footfall while moving on the ground. No particle system, no transparency - two pooled, reused mesh objects animated by a coroutine, so the cost is fixed and tiny regardless of how long the player walks. Safe to leave off for perf-constrained builds.")]
+        public bool EnableFootstepDust = true;
+        public Color DustColor = new Color(0.72f, 0.64f, 0.5f);
+
         private float _phase;
         private float _amplitude01;
         private Quaternion _leftArmRest, _rightArmRest, _leftLegRest, _rightLegRest;
@@ -50,6 +55,8 @@ namespace DisasterReady.Player
         private AudioClip _footstepClip;
         private bool _lastStepWasLeft;
         private float _idleT;
+        private Transform[] _dustPool;
+        private Coroutine[] _dustRoutines;
 
         private void Awake()
         {
@@ -70,6 +77,72 @@ namespace DisasterReady.Player
                 _footstepSource.volume = FootstepVolume;
                 _footstepClip = BuildFootstepClip();
             }
+
+            if (EnableFootstepDust) BuildDustPool();
+        }
+
+        /// <summary>
+        /// Two small flattened, opaque spheres reused for every footstep instead
+        /// of instantiating/destroying an object per step - fixed, tiny runtime
+        /// cost (no GC churn, no particle system) that stays safe for a WebGL
+        /// build no matter how long the player walks around.
+        /// </summary>
+        private void BuildDustPool()
+        {
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "FootstepDustMat" };
+            mat.SetColor("_BaseColor", DustColor);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.02f);
+
+            _dustPool = new Transform[2];
+            _dustRoutines = new Coroutine[2];
+            for (int i = 0; i < _dustPool.Length; i++)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = $"FootstepDust_{i}";
+                var col = go.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+                go.transform.SetParent(transform, false);
+                go.transform.localScale = Vector3.zero;
+                go.GetComponent<Renderer>().sharedMaterial = mat;
+                _dustPool[i] = go.transform;
+            }
+        }
+
+        private void SpawnFootstepDust(bool leftFoot)
+        {
+            if (_dustPool == null) return;
+            // Small sideways offset from the root so left/right steps don't
+            // both pop from the exact same point - approximate, not tied to
+            // the animated foot mesh, which is plenty for a cosmetic puff.
+            float side = leftFoot ? -0.16f : 0.16f;
+            Vector3 pos = transform.position + transform.right * side + Vector3.up * 0.03f;
+            int idx = leftFoot ? 0 : 1;
+            if (_dustRoutines[idx] != null) StopCoroutine(_dustRoutines[idx]);
+            _dustRoutines[idx] = StartCoroutine(DustPuffRoutine(_dustPool[idx], pos));
+        }
+
+        private System.Collections.IEnumerator DustPuffRoutine(Transform puff, Vector3 pos)
+        {
+            puff.position = pos;
+            const float growTime = 0.08f, shrinkTime = 0.28f;
+            float t = 0f;
+            while (t < growTime)
+            {
+                t += Time.deltaTime;
+                float k = Mathf.Clamp01(t / growTime);
+                puff.localScale = Vector3.one * Mathf.Lerp(0f, 0.22f, k) + new Vector3(0f, -0.1f * k, 0f);
+                yield return null;
+            }
+            t = 0f;
+            while (t < shrinkTime)
+            {
+                t += Time.deltaTime;
+                float k = Mathf.Clamp01(t / shrinkTime);
+                puff.localScale = Vector3.one * Mathf.Lerp(0.22f, 0f, k);
+                puff.position += Vector3.up * Time.deltaTime * 0.15f;
+                yield return null;
+            }
+            puff.localScale = Vector3.zero;
         }
 
         private void Update()
@@ -105,9 +178,20 @@ namespace DisasterReady.Player
                 // full sine cycle. Fire on the descending-through-zero crossings
                 // only, alternating feet, so each step gets exactly one tick.
                 bool crossedZero = (previousPhase < Mathf.PI && _phase >= Mathf.PI) || (previousPhase > _phase);
-                if (crossedZero && EnableFootstepAudio && _footstepSource != null && _footstepClip != null)
+                if (crossedZero)
                 {
-                    PlayFootstep();
+                    // Alternation lives here (not inside PlayFootstep) so dust
+                    // still alternates feet correctly even when footstep audio
+                    // is disabled.
+                    _lastStepWasLeft = !_lastStepWasLeft;
+                    if (EnableFootstepAudio && _footstepSource != null && _footstepClip != null)
+                    {
+                        PlayFootstep();
+                    }
+                    if (EnableFootstepDust && _dustPool != null)
+                    {
+                        SpawnFootstepDust(_lastStepWasLeft);
+                    }
                 }
             }
             else
@@ -131,7 +215,8 @@ namespace DisasterReady.Player
 
         private void PlayFootstep()
         {
-            _lastStepWasLeft = !_lastStepWasLeft;
+            // Alternation now happens once in Update() (shared with the dust
+            // puffs) before this is called - just react to the current value.
             // Tiny pitch alternation between feet so steps don't sound identically robotic.
             _footstepSource.pitch = _lastStepWasLeft ? 0.97f : 1.03f;
             _footstepSource.PlayOneShot(_footstepClip, FootstepVolume);

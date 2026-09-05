@@ -1,0 +1,256 @@
+=== HIERARCHY: Assets/KayKit/Adventurers/Characters/fbx/Rogue_Hooded.fbx ===
+  Rogue_Hooded
+    Rig_Medium
+      root
+        hips
+          spine
+            chest
+              head
+              upperarm.l
+                lowerarm.l
+                  wrist.l
+                    hand.l
+                      handslot.l
+              upperarm.r
+                lowerarm.r
+                  wrist.r
+                    hand.r
+                      handslot.r
+          upperleg.l
+            lowerleg.l
+              foot.l
+                toes.l
+          upperleg.r
+            lowerleg.r
+              foot.r
+                toes.r
+    RogueHooded_ArmLeft  [has renderer]
+    RogueHooded_ArmRight  [has renderer]
+    RogueHooded_Body  [has renderer]
+    RogueHooded_Cape  [has renderer]
+    RogueHooded_Head  [has renderer]
+    RogueHooded_LegLeft  [has renderer]
+    RogueHooded_LegRight  [has renderer]
+    RogueHooded_Mask  [has renderer]
+  Combined renderer bounds (local import space): size=(1.94, 2.35, 1.10) center=(0.00, 1.00, 0.01)
+
+=== HIERARCHY: Assets/KayKit/Adventurers/Characters/fbx/Ranger.fbx ===
+  Ranger
+    Ranger_ArmLeft  [has renderer]
+    Ranger_ArmRight  [has renderer]
+    Ranger_Body  [has renderer]
+    Ranger_Cape  [has renderer]
+    Ranger_Head  [has renderer]
+    Ranger_LegLeft  [has renderer]
+    Ranger_LegRight  [has renderer]
+    Ranger_Quiver  [has renderer]
+    Rig_Medium
+      root
+        hips
+          spine
+            chest
+              head
+              upperarm.l
+                lowerarm.l
+                  wrist.l
+                    hand.l
+                      handslot.l
+              upperarm.r
+                lowerarm.r
+                  wrist.r
+                    hand.r
+                      handslot.r
+          upperleg.l
+            lowerleg.l
+              foot.l
+                toes.l
+          upperleg.r
+            lowerleg.r
+              foot.r
+                toes.r
+  Combined renderer bounds (local import space): size=(1.94, 2.45, 1.05) center=(0.00, 1.05, 0.01)
+
+=== ANIM CLIPS: Assets/KayKit/Adventurers/Animations/fbx/Rig_Medium/Rig_Medium_MovementBasic.fbx ===
+  clip: Jump_Full_Long  length=2.33s  frameRate=30  isLooping=False
+  clip: Jump_Full_Short  length=1.17s  frameRate=30  isLooping=False
+  clip: Jump_Idle  length=1.07s  frameRate=30  isLooping=False
+  clip: Jump_Land  length=0.67s  frameRate=30  isLooping=False
+  clip: Jump_Start  length=0.60s  frameRate=30  isLooping=False
+  clip: Running_A  length=0.80s  frameRate=30  isLooping=False
+  clip: Running_B  length=0.80s  frameRate=30  isLooping=False
+  clip: T-Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Walking_A  length=1.07s  frameRate=30  isLooping=False
+  clip: Walking_B  length=1.07s  frameRate=30  isLooping=False
+  clip: Walking_C  length=1.60s  frameRate=30  isLooping=False
+
+=== ANIM CLIPS: Assets/KayKit/Adventurers/Animations/fbx/Rig_Medium/Rig_Medium_General.fbx ===
+  clip: Death_A  length=0.80s  frameRate=30  isLooping=False
+  clip: Death_A_Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Death_B  length=2.63s  frameRate=30  isLooping=False
+  clip: Death_B_Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Hit_A  length=0.67s  frameRate=30  isLooping=False
+  clip: Hit_B  length=0.87s  frameRate=30  isLooping=False
+  clip: Idle_A  length=1.07s  frameRate=30  isLooping=False
+  clip: Idle_B  length=2.13s  frameRate=30  isLooping=False
+  clip: Interact  length=1.30s  frameRate=30  isLooping=False
+  clip: PickUp  length=1.30s  frameRate=30  isLooping=False
+  clip: Spawn_Air  length=1.30s  frameRate=30  isLooping=False
+  clip: Spawn_Ground  length=1.30s  frameRate=30  isLooping=False
+  clip: T-Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Throw  length=1.37s  frameRate=30  isLooping=False
+  clip: Use_Item  length=1.60s  frameRate=30  isLooping=False
+
+=== ANIM CLIPS: Assets/KayKit/CharacterAnimations/Animations/fbx/Rig_Medium/Rig_Medium_MovementBasic.fbx ===
+  clip: Jump_Full_Long  length=2.33s  frameRate=30  isLooping=False
+  clip: Jump_Full_Short  length=1.17s  frameRate=30  isLooping=False
+  clip: Jump_Idle  length=1.07s  frameRate=30  isLooping=False
+  clip: Jump_Land  length=0.67s  frameRate=30  isLooping=False
+  clip: Jump_Start  length=0.60s  frameRate=30  isLooping=False
+  clip: Running_A  length=0.80s  frameRate=30  isLooping=False
+  clip: Running_B  length=0.80s  frameRate=30  isLooping=False
+  clip: T-Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Walking_A  length=1.07s  frameRate=30  isLooping=False
+  clip: Walking_B  length=1.07s  frameRate=30  isLooping=False
+  clip: Walking_C  length=1.60s  frameRate=30  isLooping=False
+
+=== ANIM CLIPS: Assets/KayKit/CharacterAnimations/Animations/fbx/Rig_Medium/Rig_Medium_MovementAdvanced.fbx ===
+  clip: Crawling  length=1.07s  frameRate=30  isLooping=False
+  clip: Crouching  length=1.07s  frameRate=30  isLooping=False
+  clip: Dodge_Backward  length=0.40s  frameRate=30  isLooping=False
+  clip: Dodge_Forward  length=0.40s  frameRate=30  isLooping=False
+  clip: Dodge_Left  length=0.40s  frameRate=30  isLooping=False
+  clip: Dodge_Right  length=0.40s  frameRate=30  isLooping=False
+  clip: Running_HoldingBow  length=0.80s  frameRate=30  isLooping=False
+  clip: Running_HoldingRifle  length=0.80s  frameRate=30  isLooping=False
+  clip: Running_Strafe_Left  length=0.80s  frameRate=30  isLooping=False
+  clip: Running_Strafe_Right  length=0.80s  frameRate=30  isLooping=False
+  clip: Sneaking  length=2.13s  frameRate=30  isLooping=False
+  clip: T-Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Walking_Backwards  length=1.07s  frameRate=30  isLooping=False
+
+=== ANIM CLIPS: Assets/KayKit/CharacterAnimations/Animations/fbx/Rig_Medium/Rig_Medium_General.fbx ===
+  clip: Death_A  length=0.80s  frameRate=30  isLooping=False
+  clip: Death_A_Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Death_B  length=2.63s  frameRate=30  isLooping=False
+  clip: Death_B_Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Hit_A  length=0.67s  frameRate=30  isLooping=False
+  clip: Hit_B  length=0.87s  frameRate=30  isLooping=False
+  clip: Idle_A  length=1.07s  frameRate=30  isLooping=False
+  clip: Idle_B  length=2.13s  frameRate=30  isLooping=False
+  clip: Interact  length=1.30s  frameRate=30  isLooping=False
+  clip: PickUp  length=1.30s  frameRate=30  isLooping=False
+  clip: Spawn_Air  length=1.30s  frameRate=30  isLooping=False
+  clip: Spawn_Ground  length=1.30s  frameRate=30  isLooping=False
+  clip: T-Pose  length=0.03s  frameRate=30  isLooping=False
+  clip: Throw  length=1.37s  frameRate=30  isLooping=False
+  clip: Use_Item  length=1.60s  frameRate=30  isLooping=False
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_A.fbx ===
+  part 'building_A' localBounds size=(2.00, 1.65, 2.00) | worldSize~=(2.00, 1.65, 2.00) worldCenter~=(0.00, 0.82, 0.00)
+  TOTAL combined renderer bounds: size=(2.00, 1.65, 2.00) center=(0.00, 0.82, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_A_withoutBase.fbx ===
+  part 'building_A_withoutBase' localBounds size=(1.21, 1.55, 1.45) | worldSize~=(1.21, 1.55, 1.45) worldCenter~=(0.00, 0.87, 0.08)
+  TOTAL combined renderer bounds: size=(1.21, 1.55, 1.45) center=(0.00, 0.87, 0.08)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_B.fbx ===
+  part 'building_B' localBounds size=(2.00, 1.65, 2.00) | worldSize~=(2.00, 1.65, 2.00) worldCenter~=(0.00, 0.82, 0.00)
+  TOTAL combined renderer bounds: size=(2.00, 1.65, 2.00) center=(0.00, 0.82, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_B_withoutBase.fbx ===
+  part 'building_B_withoutBase' localBounds size=(1.61, 1.55, 1.30) | worldSize~=(1.61, 1.55, 1.30) worldCenter~=(0.00, 0.87, 0.00)
+  TOTAL combined renderer bounds: size=(1.61, 1.55, 1.30) center=(0.00, 0.87, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_C.fbx ===
+  part 'building_C' localBounds size=(2.00, 2.98, 2.00) | worldSize~=(2.00, 2.98, 2.00) worldCenter~=(0.00, 1.49, 0.00)
+  TOTAL combined renderer bounds: size=(2.00, 2.98, 2.00) center=(0.00, 1.49, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_C_withoutBase.fbx ===
+  part 'building_C_withoutBase' localBounds size=(1.21, 2.25, 1.30) | worldSize~=(1.21, 2.25, 1.30) worldCenter~=(0.00, 1.22, 0.00)
+  TOTAL combined renderer bounds: size=(1.21, 2.25, 1.30) center=(0.00, 1.22, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_D.fbx ===
+  part 'building_D' localBounds size=(2.00, 2.97, 2.02) | worldSize~=(2.00, 2.97, 2.02) worldCenter~=(0.00, 1.49, 0.01)
+  TOTAL combined renderer bounds: size=(2.00, 2.97, 2.02) center=(0.00, 1.49, 0.01)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_D_withoutBase.fbx ===
+  part 'building_D_withoutBase' localBounds size=(1.61, 2.25, 1.30) | worldSize~=(1.61, 2.25, 1.30) worldCenter~=(0.00, 1.22, 0.00)
+  TOTAL combined renderer bounds: size=(1.61, 2.25, 1.30) center=(0.00, 1.22, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_E.fbx ===
+  part 'building_E' localBounds size=(2.01, 2.35, 2.00) | worldSize~=(2.01, 2.35, 2.00) worldCenter~=(0.00, 1.18, 0.00)
+  TOTAL combined renderer bounds: size=(2.01, 2.35, 2.00) center=(0.00, 1.18, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_E_withoutBase.fbx ===
+  part 'building_E_withoutBase' localBounds size=(2.01, 2.25, 1.45) | worldSize~=(2.01, 2.25, 1.45) worldCenter~=(0.00, 1.22, 0.08)
+  TOTAL combined renderer bounds: size=(2.01, 2.25, 1.45) center=(0.00, 1.22, 0.08)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_F.fbx ===
+  part 'building_F' localBounds size=(2.01, 2.35, 2.00) | worldSize~=(2.01, 2.35, 2.00) worldCenter~=(0.00, 1.18, 0.00)
+  TOTAL combined renderer bounds: size=(2.01, 2.35, 2.00) center=(0.00, 1.18, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_F_withoutBase.fbx ===
+  part 'building_F_withoutBase' localBounds size=(2.01, 2.25, 1.30) | worldSize~=(2.01, 2.25, 1.30) worldCenter~=(0.00, 1.22, 0.00)
+  TOTAL combined renderer bounds: size=(2.01, 2.25, 1.30) center=(0.00, 1.22, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_G.fbx ===
+  part 'building_G' localBounds size=(2.01, 2.98, 2.00) | worldSize~=(2.01, 2.98, 2.00) worldCenter~=(0.00, 1.49, 0.00)
+  TOTAL combined renderer bounds: size=(2.01, 2.98, 2.00) center=(0.00, 1.49, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_G_withoutBase.fbx ===
+  part 'building_G_withoutBase' localBounds size=(2.01, 2.25, 1.45) | worldSize~=(2.01, 2.25, 1.45) worldCenter~=(0.00, 1.22, 0.08)
+  TOTAL combined renderer bounds: size=(2.01, 2.25, 1.45) center=(0.00, 1.22, 0.08)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_H.fbx ===
+  part 'building_H' localBounds size=(2.01, 3.05, 2.00) | worldSize~=(2.01, 3.05, 2.00) worldCenter~=(0.00, 1.53, 0.00)
+  TOTAL combined renderer bounds: size=(2.01, 3.05, 2.00) center=(0.00, 1.53, 0.00)
+
+=== MESH: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_H_withoutBase.fbx ===
+  part 'building_H_withoutBase' localBounds size=(2.01, 2.95, 1.30) | worldSize~=(2.01, 2.95, 1.30) worldCenter~=(0.00, 1.57, 0.00)
+  TOTAL combined renderer bounds: size=(2.01, 2.95, 1.30) center=(0.00, 1.57, 0.00)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Tree_1_A_Color1.fbx ===
+  part 'Tree_1_A_Color1' localBounds size=(3.18, 4.16, 3.25) | worldSize~=(3.18, 4.16, 3.25) worldCenter~=(0.34, 1.82, 0.00)
+  TOTAL combined renderer bounds: size=(3.18, 4.16, 3.25) center=(0.34, 1.82, 0.00)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Tree_2_A_Color1.fbx ===
+  part 'Tree_2_A_Color1' localBounds size=(2.60, 4.67, 2.00) | worldSize~=(2.60, 4.67, 2.00) worldCenter~=(0.34, 1.96, -0.21)
+  TOTAL combined renderer bounds: size=(2.60, 4.67, 2.00) center=(0.34, 1.96, -0.21)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Tree_3_A_Color1.fbx ===
+  part 'Tree_3_A_Color1' localBounds size=(3.09, 3.51, 3.09) | worldSize~=(3.09, 3.51, 3.09) worldCenter~=(0.01, 1.49, 0.00)
+  TOTAL combined renderer bounds: size=(3.09, 3.51, 3.09) center=(0.01, 1.49, 0.00)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Tree_4_A_Color1.fbx ===
+  part 'Tree_4_A_Color1' localBounds size=(2.01, 5.27, 2.00) | worldSize~=(2.01, 5.27, 2.00) worldCenter~=(-0.04, 2.30, -0.02)
+  TOTAL combined renderer bounds: size=(2.01, 5.27, 2.00) center=(-0.04, 2.30, -0.02)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Tree_Bare_1_A_Color1.fbx ===
+  part 'Tree_Bare_1_A_Color1' localBounds size=(1.13, 2.86, 1.03) | worldSize~=(1.13, 2.86, 1.03) worldCenter~=(-0.05, 1.17, -0.08)
+  TOTAL combined renderer bounds: size=(1.13, 2.86, 1.03) center=(-0.05, 1.17, -0.08)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Rock_1_A_Color1.fbx ===
+  part 'Rock_1_A_Color1' localBounds size=(0.58, 0.54, 0.61) | worldSize~=(0.58, 0.54, 0.61) worldCenter~=(0.03, 0.27, 0.00)
+  TOTAL combined renderer bounds: size=(0.58, 0.54, 0.61) center=(0.03, 0.27, 0.00)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Rock_2_A_Color1.fbx ===
+  part 'Rock_2_A_Color1' localBounds size=(0.22, 0.22, 0.22) | worldSize~=(0.22, 0.22, 0.22) worldCenter~=(0.00, 0.11, 0.00)
+  TOTAL combined renderer bounds: size=(0.22, 0.22, 0.22) center=(0.00, 0.11, 0.00)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Rock_3_A_Color1.fbx ===
+  part 'Rock_3_A_Color1' localBounds size=(0.96, 0.86, 0.81) | worldSize~=(0.96, 0.86, 0.81) worldCenter~=(0.05, -0.04, -0.01)
+  TOTAL combined renderer bounds: size=(0.96, 0.86, 0.81) center=(0.05, -0.04, -0.01)
+
+=== MESH: Assets/KayKit/Forest/Assets/fbx(unity)/Bush_1_A_Color1.fbx ===
+  part 'Bush_1_A_Color1' localBounds size=(0.27, 0.23, 0.23) | worldSize~=(0.27, 0.23, 0.23) worldCenter~=(0.00, 0.11, 0.00)
+  TOTAL combined renderer bounds: size=(0.27, 0.23, 0.23) center=(0.00, 0.11, 0.00)
+
+=== MATERIALS: Assets/KayKit/Adventurers/Characters/fbx/Rogue_Hooded.fbx ===
+  material 'rogue' shader='Universal Render Pipeline/Lit' mainTexture=rogue_texture
+
+=== MATERIALS: Assets/KayKit/CityBuilder/Assets/fbx (unity)/building_A.fbx ===
+  material 'citybits_texture' shader='Universal Render Pipeline/Lit' mainTexture=citybits_texture
+
+=== MATERIALS: Assets/KayKit/Forest/Assets/fbx(unity)/Tree_1_A_Color1.fbx ===
+  material 'forest' shader='Universal Render Pipeline/Lit' mainTexture=forest_texture
+

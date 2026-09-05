@@ -1,0 +1,103 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace DisasterReady.CameraSystem
+{
+    /// <summary>
+    /// Simple, reliable orbit/follow camera.
+    /// Editor fallback: hold the left or right mouse button and drag to orbit, scroll to zoom.
+    /// </summary>
+    public class OrbitCameraController : MonoBehaviour
+    {
+        [Header("Target")]
+        public Transform Target;
+        public Vector3 TargetOffset = new Vector3(0f, 1.6f, 0f);
+
+        [Header("Orbit")]
+        public float YawSpeed = 150f;
+        public float PitchSpeed = 120f;
+        public float MinPitch = 12f;
+        public float MaxPitch = 75f;
+        public float StartYaw = 0f;
+        public float StartPitch = 35f;
+
+        [Header("Zoom")]
+        public float Distance = 12f;
+        public float MinDistance = 4f;
+        public float MaxDistance = 26f;
+        public float ZoomSpeed = 4f;
+
+        [Header("Feel")]
+        public float PositionSmoothing = 10f;
+
+        [Header("Auto-follow")]
+        [Tooltip("DISABLED BY DEFAULT (overnight stabilization pass): this eased the camera's yaw toward the player's facing whenever the player was moving. Combined with camera-relative movement (PlayerController computes move direction from THIS camera's current forward/right), that created a closed feedback loop - holding S turns the player to face back toward the camera, which eased the camera yaw to catch up behind that new facing, which rotated camForward, which rotated what 'backward' meant, which kept the player turning - producing continuous circular/orbiting motion instead of straight-line backward movement. With this off, camera yaw only ever changes from an explicit mouse drag, so WASD can never feed back into the camera and movement stays a straight line relative to a fixed camera. Left here (not deleted) in case a future non-feedback-prone version of auto-follow is wanted.")]
+        public bool AutoFollowYaw = false;
+        public float AutoFollowSpeed = 2f;
+        [Tooltip("Seconds of no manual drag before auto-follow resumes.")]
+        public float AutoFollowResumeDelay = 0.75f;
+        [Tooltip("Optional: when set, auto-follow only runs while this player is actually moving. Safe to leave unassigned - auto-follow simply never activates.")]
+        public DisasterReady.Player.PlayerController PlayerRef;
+
+        private float _yaw;
+        private float _pitch;
+        private Vector3 _currentVelocity;
+        private float _timeSinceManualDrag = 999f;
+
+        public bool ControlsEnabled = true;
+
+        private void Start()
+        {
+            _yaw = StartYaw;
+            _pitch = StartPitch;
+        }
+
+        private void LateUpdate()
+        {
+            if (Target == null) return;
+
+            if (ControlsEnabled)
+            {
+                var mouse = Mouse.current;
+                if (mouse != null)
+                {
+                    bool dragging = mouse.leftButton.isPressed || mouse.rightButton.isPressed;
+                    if (dragging)
+                    {
+                        Vector2 delta = mouse.delta.ReadValue();
+                        _yaw += delta.x * YawSpeed * Time.deltaTime * 0.1f;
+                        _pitch -= delta.y * PitchSpeed * Time.deltaTime * 0.1f;
+                        _pitch = Mathf.Clamp(_pitch, MinPitch, MaxPitch);
+                        _timeSinceManualDrag = 0f;
+                    }
+                    else
+                    {
+                        _timeSinceManualDrag += Time.deltaTime;
+                    }
+
+                    float scroll = mouse.scroll.ReadValue().y;
+                    if (Mathf.Abs(scroll) > 0.01f)
+                    {
+                        Distance -= scroll * ZoomSpeed * 0.02f;
+                        Distance = Mathf.Clamp(Distance, MinDistance, MaxDistance);
+                    }
+                }
+
+                // Presentation-only: never overrides a manual drag (guarded by
+                // AutoFollowResumeDelay above) and never touches Distance/Pitch,
+                // so zoom and tilt preferences persist across it.
+                if (AutoFollowYaw && PlayerRef != null && PlayerRef.IsMoving && _timeSinceManualDrag > AutoFollowResumeDelay)
+                {
+                    float targetYaw = Target.eulerAngles.y;
+                    _yaw = Mathf.LerpAngle(_yaw, targetYaw, Time.deltaTime * AutoFollowSpeed);
+                }
+            }
+
+            Quaternion rot = Quaternion.Euler(_pitch, _yaw, 0f);
+            Vector3 desiredPos = Target.position + TargetOffset - rot * Vector3.forward * Distance;
+
+            transform.position = Vector3.SmoothDamp(transform.position, desiredPos, ref _currentVelocity, 1f / PositionSmoothing);
+            transform.LookAt(Target.position + TargetOffset);
+        }
+    }
+}

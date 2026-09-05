@@ -26,7 +26,11 @@ namespace DisasterReady.EditorTools
     {
         public const string ScenePath = "Assets/Scenes/DisasterReadyDemo.unity";
         public static readonly Vector3 TerrainSize = new Vector3(400f, 85f, 400f);
-        public const int HeightmapResolution = 129;
+        // 257 (up from 129) roughly doubles heightmap sample density - the terrain
+        // still bakes in well under a second at this size, but normals interpolate
+        // across a noticeably shorter distance, which softens the faceted-looking
+        // light/shadow break along ridgelines that a coarser heightmap produces.
+        public const int HeightmapResolution = 257;
         public const int Seed = 1337;
 
         [MenuItem("DisasterReady/Build Demo Scene")]
@@ -36,7 +40,32 @@ namespace DisasterReady.EditorTools
 
             EnsureFolders();
 
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // Manual-level-design safety: if the demo scene file already exists, open it
+            // (instead of always wiping to a brand-new empty scene) so that a "ManualLevel"
+            // hierarchy the designer built by hand in the Scene view survives regeneration.
+            // Everything else at the scene root (terrain, generated gameplay infrastructure,
+            // UI, missions, etc.) is destroyed and rebuilt fresh below, exactly as before.
+            Scene scene;
+            if (File.Exists(ScenePath))
+            {
+                scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            }
+            else
+            {
+                scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+
+            GameObject manualLevel = EnsureManualLevelHierarchy(scene);
+            var rootsToDestroy = new List<GameObject>();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root == manualLevel) continue;
+                rootsToDestroy.Add(root);
+            }
+            foreach (var root in rootsToDestroy)
+            {
+                Object.DestroyImmediate(root);
+            }
 
             var terrainResult = BuildTerrainAndLighting();
             var envResult = EnvironmentBuilder.Populate(terrainResult);
@@ -116,6 +145,50 @@ namespace DisasterReady.EditorTools
                 : "[SceneBuilder] Scene build finished but SaveScene reported failure - check console.");
         }
 
+        /// <summary>
+        /// Finds (or creates) the root "ManualLevel" GameObject that holds everything the
+        /// level designer places by hand in the Scene view. BuildDemoScene() never destroys
+        /// this hierarchy - it is the one thing that survives every regeneration. Ensures the
+        /// standard child buckets (Roads, Buildings, POI, Vegetation, Props) exist so there is
+        /// always an obvious, stable place to drag hand-placed KayKit pieces into.
+        /// </summary>
+        private static GameObject EnsureManualLevelHierarchy(Scene scene)
+        {
+            GameObject manualLevel = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name == "ManualLevel")
+                {
+                    manualLevel = root;
+                    break;
+                }
+            }
+
+            if (manualLevel == null)
+            {
+                manualLevel = new GameObject("ManualLevel");
+                Debug.Log("[SceneBuilder] Created empty 'ManualLevel' hierarchy for hand-placed level design (Roads/Buildings/POI/Vegetation/Props).");
+            }
+
+            EnsureChild(manualLevel.transform, "Roads");
+            EnsureChild(manualLevel.transform, "Buildings");
+            EnsureChild(manualLevel.transform, "POI");
+            EnsureChild(manualLevel.transform, "Vegetation");
+            EnsureChild(manualLevel.transform, "Props");
+
+            return manualLevel;
+        }
+
+        private static void EnsureChild(Transform parent, string childName)
+        {
+            foreach (Transform child in parent)
+            {
+                if (child.name == childName) return;
+            }
+            var go = new GameObject(childName);
+            go.transform.SetParent(parent, worldPositionStays: false);
+        }
+
         [MenuItem("DisasterReady/Set DisasterReadyDemo As Default Scene")]
         public static void SetAsDefaultScene()
         {
@@ -187,36 +260,53 @@ namespace DisasterReady.EditorTools
             var sunGO = new GameObject("Sun");
             var sun = sunGO.AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.color = new Color(1f, 0.93f, 0.78f);
-            sun.intensity = 1.35f;
+            // Warmer and a touch brighter than before for a more attractive,
+            // inviting "golden hillside" daylight rather than a neutral-white
+            // technical light.
+            sun.color = new Color(1f, 0.9f, 0.72f);
+            sun.intensity = 1.45f;
             sun.shadows = LightShadows.Soft;
-            sun.shadowStrength = 0.75f;
+            // Softened from 0.75 - at full strength, combined with the coarse-ish
+            // heightmap normals, terraced hillsides read as a hard-edged two-tone
+            // light/dark split rather than a smooth graded slope. A lower shadow
+            // strength plus the brighter equator/ground ambient below closes that
+            // gap without flattening the scene's overall contrast.
+            sun.shadowStrength = 0.55f;
             sunGO.transform.rotation = Quaternion.Euler(48f, -35f, 0f);
             RenderSettings.sun = sun;
 
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = new Color(0.65f, 0.75f, 0.85f);
-            RenderSettings.ambientEquatorColor = new Color(0.55f, 0.5f, 0.42f);
-            RenderSettings.ambientGroundColor = new Color(0.3f, 0.28f, 0.24f);
+            RenderSettings.ambientEquatorColor = new Color(0.62f, 0.58f, 0.48f);
+            RenderSettings.ambientGroundColor = new Color(0.4f, 0.38f, 0.32f);
 
             var skyShader = Shader.Find("Skybox/Procedural");
             if (skyShader != null)
             {
                 var skyMat = new Material(skyShader);
-                skyMat.SetColor("_SkyTint", new Color(0.85f, 0.82f, 0.95f));
+                skyMat.SetColor("_SkyTint", new Color(0.83f, 0.81f, 0.93f));
                 skyMat.SetColor("_GroundColor", new Color(0.55f, 0.5f, 0.42f));
-                skyMat.SetFloat("_SunSize", 0.06f);
-                skyMat.SetFloat("_AtmosphereThickness", 0.9f);
-                skyMat.SetFloat("_Exposure", 1.15f);
+                skyMat.SetFloat("_SunSize", 0.065f);
+                // A bit thicker atmosphere so distant ridgelines visibly haze
+                // toward the sky color - this is what actually separates
+                // foreground/midground/background on a hillside terrain
+                // instead of every hill reading at the same contrast.
+                skyMat.SetFloat("_AtmosphereThickness", 1.05f);
+                skyMat.SetFloat("_Exposure", 1.2f);
                 SharedAssetUtility.CreateOrReplaceAsset(skyMat, "Assets/Art/DemoSkybox.mat");
                 RenderSettings.skybox = skyMat;
             }
 
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.86f, 0.83f, 0.78f);
-            RenderSettings.fogStartDistance = 90f;
-            RenderSettings.fogEndDistance = 420f;
+            // Warmer, slightly earlier-starting fog than before (was a cooler
+            // 0.86/0.83/0.78 starting at 90) - gives nearby terrain/buildings
+            // full contrast while midground hills and the settlement start
+            // to soften into haze, reinforcing depth without fogging out
+            // anything the player needs to read up close.
+            RenderSettings.fogColor = new Color(0.87f, 0.8f, 0.7f);
+            RenderSettings.fogStartDistance = 70f;
+            RenderSettings.fogEndDistance = 400f;
 
             BuildPostProcessVolume();
 
@@ -240,9 +330,13 @@ namespace DisasterReady.EditorTools
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
 
             var colorAdj = profile.Add<ColorAdjustments>(true);
-            colorAdj.saturation.overrideState = true; colorAdj.saturation.value = 10f;
-            colorAdj.postExposure.overrideState = true; colorAdj.postExposure.value = 0.1f;
-            colorAdj.colorFilter.overrideState = true; colorAdj.colorFilter.value = new Color(1f, 0.97f, 0.9f);
+            // A bit more saturated/contrasty and a hair brighter than before
+            // so the noise-textured terrain and building materials pop
+            // instead of reading flat under URP's default tonemap response.
+            colorAdj.saturation.overrideState = true; colorAdj.saturation.value = 15f;
+            colorAdj.contrast.overrideState = true; colorAdj.contrast.value = 8f;
+            colorAdj.postExposure.overrideState = true; colorAdj.postExposure.value = 0.14f;
+            colorAdj.colorFilter.overrideState = true; colorAdj.colorFilter.value = new Color(1f, 0.97f, 0.89f);
 
             var bloom = profile.Add<Bloom>(true);
             bloom.intensity.overrideState = true; bloom.intensity.value = 0.3f;
@@ -261,9 +355,15 @@ namespace DisasterReady.EditorTools
 
         private static void BuildAndPaintLayers(TerrainData terrainData)
         {
-            var grass = CreateTerrainLayer("Grass", new Color(0.42f, 0.55f, 0.28f), 45f);
-            var rock = CreateTerrainLayer("Rock", new Color(0.5f, 0.47f, 0.44f), 30f);
-            var snow = CreateTerrainLayer("Snow", new Color(0.92f, 0.93f, 0.95f), 25f);
+            // Slightly richer/greener than the original desaturated tone, to
+            // read as the lush northeastern-hill vegetation the brief calls
+            // for instead of a dry/generic grass green. Each layer now uses a
+            // noise-textured diffuse (see SharedAssetUtility.CreateNoisyTexture)
+            // instead of one flat pixel, so the ground reads as an actual
+            // textured surface up close instead of a solid-color placeholder.
+            var grass = CreateTerrainLayer("Grass", new Color(0.37f, 0.56f, 0.26f), 32f, variation: 0.07f);
+            var rock = CreateTerrainLayer("Rock", new Color(0.5f, 0.47f, 0.44f), 22f, variation: 0.12f);
+            var snow = CreateTerrainLayer("Snow", new Color(0.92f, 0.93f, 0.95f), 25f, variation: 0.04f);
 
             terrainData.terrainLayers = new[] { grass, rock, snow };
 
@@ -279,8 +379,19 @@ namespace DisasterReady.EditorTools
                     Vector3 normal = terrainData.GetInterpolatedNormal(nx, nz);
                     float slopeDeg = Vector3.Angle(normal, Vector3.up);
 
-                    float rockW = Mathf.Clamp01((slopeDeg - 22f) / 20f);
-                    float snowW = Mathf.Clamp01((height01 - 0.66f) / 0.14f) * (1f - rockW);
+                    // A little low-frequency noise on the thresholds themselves
+                    // (not just the blend width) so the grass/rock/snow boundary
+                    // follows a slightly irregular line instead of a perfectly
+                    // clean contour - reads as a natural weathered hillside
+                    // rather than a procedural height/slope mask.
+                    float jitter = (Mathf.PerlinNoise(nx * 23f + 11.7f, nz * 23f + 4.3f) - 0.5f) * 6f;
+
+                    // Wider ramps (was 20deg/0.14 height) so the transition band
+                    // covers more world-space distance and reads as a gradient
+                    // rather than a hard edge once the alphamap is sampled at
+                    // typical terrain-layer tile sizes.
+                    float rockW = Mathf.Clamp01((slopeDeg - 26f + jitter) / 30f);
+                    float snowW = Mathf.Clamp01((height01 - 0.68f) / 0.22f) * (1f - rockW);
                     float grassW = Mathf.Clamp01(1f - rockW - snowW);
 
                     float sum = rockW + snowW + grassW;
@@ -294,9 +405,9 @@ namespace DisasterReady.EditorTools
             terrainData.SetAlphamaps(0, 0, maps);
         }
 
-        private static TerrainLayer CreateTerrainLayer(string name, Color color, float tileSize)
+        private static TerrainLayer CreateTerrainLayer(string name, Color color, float tileSize, float variation = 0.08f)
         {
-            var tex = SharedAssetUtility.CreateSolidTexture(color, $"Assets/Terrain/Layers/{name}Tex.png");
+            var tex = SharedAssetUtility.CreateNoisyTexture(color, $"Assets/Terrain/Layers/{name}Tex.png", variation: variation, seed: name.GetHashCode());
             var layer = new TerrainLayer { diffuseTexture = tex, tileSize = new Vector2(tileSize, tileSize) };
             SharedAssetUtility.CreateOrReplaceAsset(layer, $"Assets/Terrain/Layers/{name}.terrainlayer");
             return layer;

@@ -13,8 +13,15 @@ namespace DisasterReady.Player
     {
         [Header("Movement")]
         public float MoveSpeed = 6.5f;
+        public float SprintSpeed = 10.5f;
+        public float Acceleration = 14f;
+        public float Deceleration = 20f;
         public float TurnSmoothing = 12f;
         public float Gravity = -18f;
+
+        [Header("Jump")]
+        [Tooltip("Approximate peak jump height in meters.")]
+        public float JumpHeight = 2f;
 
         [Header("References")]
         public Transform CameraPivot;
@@ -24,18 +31,25 @@ namespace DisasterReady.Player
 
         private CharacterController _controller;
         private float _verticalVelocity;
+        private float _currentGroundSpeed;
+        private Vector3 _lastMoveDir = Vector3.forward;
 
         public System.Action<Vector3> OnMoved;
 
         /// <summary>
-        /// 0..1 normalized ground-speed readout for the current frame, purely for
-        /// presentation (e.g. ProceduralCharacterAnimator's walk-cycle blend).
-        /// Does not feed back into movement in any way.
+        /// 0..1 normalized ground-speed readout for the current frame (0 = idle, ~0.62 = walk, 1.0 = sprint).
+        /// Used by animation systems (both ProceduralCharacterAnimator and Animator blend trees).
         /// </summary>
         public float CurrentSpeed01 { get; private set; }
 
-        /// <summary>True while the player is actively moving on the ground this frame. Presentation-only, same as CurrentSpeed01.</summary>
+        /// <summary>Current ground speed in m/s.</summary>
+        public float CurrentSpeed { get; private set; }
+
+        /// <summary>True while the player is actively moving on the ground this frame.</summary>
         public bool IsMoving { get; private set; }
+
+        /// <summary>True while the sprint key is held and the player is moving.</summary>
+        public bool IsSprinting { get; private set; }
 
         private void Awake()
         {
@@ -47,36 +61,59 @@ namespace DisasterReady.Player
             if (!ControlsEnabled)
             {
                 CurrentSpeed01 = 0f;
+                CurrentSpeed = 0f;
                 IsMoving = false;
+                IsSprinting = false;
+                _currentGroundSpeed = 0f;
                 return;
             }
 
             Vector2 input = ReadMoveInput();
+            bool sprintPressed = ReadSprintInput();
+
             Vector3 camForward = CameraPivot != null ? CameraPivot.forward : Vector3.forward;
             Vector3 camRight = CameraPivot != null ? CameraPivot.right : Vector3.right;
             camForward.y = 0f; camForward.Normalize();
             camRight.y = 0f; camRight.Normalize();
 
             Vector3 moveDir = camForward * input.y + camRight * input.x;
+            float inputMag = Mathf.Clamp01(moveDir.magnitude);
 
-            if (moveDir.sqrMagnitude > 0.001f)
+            if (inputMag > 0.001f)
             {
-                Quaternion targetRot = Quaternion.LookRotation(moveDir);
+                _lastMoveDir = moveDir.normalized;
+                Quaternion targetRot = Quaternion.LookRotation(_lastMoveDir);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * TurnSmoothing);
             }
 
-            if (_controller.isGrounded && _verticalVelocity < 0f)
+            bool isGrounded = _controller.isGrounded;
+            if (isGrounded && _verticalVelocity < 0f)
             {
                 _verticalVelocity = -1f;
             }
+
+            // Grounded-only single jump. No double jump: this only fires while isGrounded is true,
+            // and isGrounded becomes false the instant the controller leaves the ground.
+            if (isGrounded && ReadJumpInput())
+            {
+                _verticalVelocity = Mathf.Sqrt(2f * JumpHeight * -Gravity);
+            }
+
             _verticalVelocity += Gravity * Time.deltaTime;
 
-            Vector3 velocity = moveDir * MoveSpeed;
+            float maxTargetSpeed = sprintPressed ? SprintSpeed : MoveSpeed;
+            float targetSpeed = maxTargetSpeed * inputMag;
+            float rate = targetSpeed > _currentGroundSpeed ? Acceleration : Deceleration;
+            _currentGroundSpeed = Mathf.MoveTowards(_currentGroundSpeed, targetSpeed, rate * Time.deltaTime);
+
+            Vector3 velocity = (inputMag > 0.001f ? _lastMoveDir : _lastMoveDir) * _currentGroundSpeed;
             velocity.y = _verticalVelocity;
             _controller.Move(velocity * Time.deltaTime);
 
-            IsMoving = moveDir.sqrMagnitude > 0.001f;
-            CurrentSpeed01 = Mathf.Clamp01(moveDir.magnitude);
+            IsMoving = _currentGroundSpeed > 0.1f && inputMag > 0.001f;
+            IsSprinting = IsMoving && sprintPressed;
+            CurrentSpeed = _currentGroundSpeed;
+            CurrentSpeed01 = Mathf.Clamp01(_currentGroundSpeed / SprintSpeed);
 
             if (IsMoving)
             {
@@ -97,6 +134,20 @@ namespace DisasterReady.Player
 
             Vector2 v = new Vector2(x, y);
             return v.sqrMagnitude > 1f ? v.normalized : v;
+        }
+
+        private bool ReadSprintInput()
+        {
+            var kb = Keyboard.current;
+            if (kb == null) return false;
+            return kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
+        }
+
+        private bool ReadJumpInput()
+        {
+            var kb = Keyboard.current;
+            if (kb == null) return false;
+            return kb.spaceKey.wasPressedThisFrame;
         }
     }
 }

@@ -44,7 +44,18 @@ namespace DisasterReady.EditorTools
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
+            // Final presentation pass: the reference resolution was 1920x1080,
+            // but the Editor Game view and the WebGL build's actual embedded
+            // canvas both typically run well below that (often ~1280x720 or
+            // smaller) - ScaleWithScreenSize then shrinks every font by
+            // whatever fraction of 1920 the real viewport is (e.g. ~0.5x at a
+            // 960px-wide viewport), and text rasterized at that fractional
+            // scale reads as blurry/small exactly as reported. Matching the
+            // reference resolution to the realistic viewport size means the
+            // same point sizes below land much closer to their literal pixel
+            // size at the resolution this is actually viewed at, without
+            // changing a single layout position or font-size value.
+            scaler.referenceResolution = new Vector2(1280, 720);
             scaler.matchWidthOrHeight = 0.5f;
             canvasGO.AddComponent<GraphicRaycaster>();
 
@@ -122,7 +133,7 @@ namespace DisasterReady.EditorTools
                 new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -40f), new Vector2(-14f, 26f), FontStyle.Normal);
             var catText = CreateText(terrainPanel.transform, "CategoryText", "Terrain: --", 18, Color.white, TextAnchor.UpperLeft,
                 new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -68f), new Vector2(-14f, 26f), FontStyle.Normal);
-            var sourceText = CreateText(terrainPanel.transform, "SourceLabel", "DEMONSTRATION TERRAIN — PROTOTYPE DATA", 12, new Color(0.65f, 0.67f, 0.7f), TextAnchor.LowerLeft,
+            var sourceText = CreateText(terrainPanel.transform, "SourceLabel", "DEMONSTRATION TERRAIN — PROTOTYPE DATA", 14, new Color(0.65f, 0.67f, 0.7f), TextAnchor.LowerLeft,
                 new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(14f, 10f), new Vector2(-14f, 32f), FontStyle.Italic);
 
             var terrainInfo = hudRoot.AddComponent<TerrainInfoPanelController>();
@@ -139,11 +150,11 @@ namespace DisasterReady.EditorTools
                 new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -12f), new Vector2(-14f, 26f), FontStyle.Bold);
             var statusHeadline = CreateText(offlinePanel.transform, "StatusHeadline", "", 18, new Color(0.95f, 0.8f, 0.4f), TextAnchor.UpperLeft,
                 new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -40f), new Vector2(-14f, 24f), FontStyle.Bold);
-            var line1 = CreateText(offlinePanel.transform, "StatusLine1", "", 14, Color.white, TextAnchor.UpperLeft,
+            var line1 = CreateText(offlinePanel.transform, "StatusLine1", "", 15, Color.white, TextAnchor.UpperLeft,
                 new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -66f), new Vector2(-14f, 20f), FontStyle.Normal);
-            var line2 = CreateText(offlinePanel.transform, "StatusLine2", "", 14, Color.white, TextAnchor.UpperLeft,
+            var line2 = CreateText(offlinePanel.transform, "StatusLine2", "", 15, Color.white, TextAnchor.UpperLeft,
                 new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -86f), new Vector2(-14f, 20f), FontStyle.Normal);
-            var line3 = CreateText(offlinePanel.transform, "StatusLine3", "", 14, Color.white, TextAnchor.UpperLeft,
+            var line3 = CreateText(offlinePanel.transform, "StatusLine3", "", 15, Color.white, TextAnchor.UpperLeft,
                 new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -106f), new Vector2(-14f, 20f), FontStyle.Normal);
             var simButton = CreateButton(offlinePanel.transform, "SimulateButton", "SIMULATE NO INTERNET", new Color(0.25f, 0.3f, 0.4f),
                 new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(290f, 40f));
@@ -234,7 +245,7 @@ namespace DisasterReady.EditorTools
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -230f), new Vector2(780f, 30f), FontStyle.Normal);
             var emergencyText = CreateText(resultRoot.transform, "EmergencyText", "", 20, new Color(0.6f, 0.95f, 0.6f), TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -264f), new Vector2(780f, 30f), FontStyle.Bold);
-            var disclaimerText = CreateText(resultRoot.transform, "DisclaimerText", "", 14, new Color(0.7f, 0.72f, 0.76f), TextAnchor.MiddleCenter,
+            var disclaimerText = CreateText(resultRoot.transform, "DisclaimerText", "", 15, new Color(0.7f, 0.72f, 0.76f), TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(780f, 50f), FontStyle.Italic);
 
             var resultPanel = resultRoot.AddComponent<PreparednessResultPanel>();

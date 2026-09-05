@@ -106,8 +106,18 @@ namespace DisasterReady.Utility
             // Two roof slopes
             AddQuad(v0, ridgeA, ridgeB, v3);
             AddQuad(v1, v2, ridgeB, ridgeA);
-            // Underside (so it doesn't look hollow from below)
-            AddQuad(v0, v3, v2, v1);
+            // NOTE: an "underside" face (AddQuad(v0, v3, v2, v1) at local y=0)
+            // used to be added here so the roof didn't look hollow from below.
+            // It doesn't - this roof is placed at localPosition (0, height, 0)
+            // on top of the building body cube, whose top face sits at that
+            // exact same world Y. The underside face and the body's top face
+            // were therefore perfectly coplanar, which is a textbook z-fighting
+            // setup: two opaque triangles occupying the same depth-buffer plane
+            // flicker between which one wins as the camera moves, which is
+            // exactly the roof flicker/vanish/reappear bug. The body cube's own
+            // opaque top face already fully occludes the view up into the roof
+            // from below/inside, so the underside face was purely redundant
+            // geometry - removing it fixes the flicker with no visual loss.
 
             mesh.SetVertices(verts);
             mesh.SetTriangles(tris, 0);

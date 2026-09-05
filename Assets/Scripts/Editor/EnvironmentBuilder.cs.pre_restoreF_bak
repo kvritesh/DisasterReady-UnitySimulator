@@ -1,0 +1,1313 @@
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.UI;
+using DisasterReady.Utility;
+using DisasterReady.Terrain;
+using DisasterReady.Missions;
+using DisasterReady.POI;
+using DisasterReady.Player;
+using DisasterReady.CameraSystem;
+
+namespace DisasterReady.EditorTools
+{
+    /// <summary>
+    /// Populates a generated terrain with trees, buildings, POIs, the player and the
+    /// camera rig. Kept separate from SceneBuilder so terrain/lighting concerns don't
+    /// mix with "what lives on top of the terrain" concerns.
+    /// </summary>
+    internal static class EnvironmentBuilder
+    {
+        internal class EnvResult
+        {
+            public GameObject Player;
+            public Camera MainCamera;
+            public GameObject HospitalBuilding;
+            public GameObject ShelterBuilding;
+            public MissionZoneTrigger HospitalTrigger;
+            public MissionZoneTrigger ShelterTrigger;
+            public MissionZoneTrigger SummitTrigger;
+            public Text SummitLabelText;
+            public List<GameObject> Buildings = new List<GameObject>();
+            public List<GameObject> Trees = new List<GameObject>();
+        }
+
+        private static Vector3 WorldFromNormalized(SceneBuilder.TerrainBuildResult t, float nx, float nz)
+        {
+            float worldY = t.Data.GetInterpolatedHeight(nx, nz);
+            float worldX = t.Origin.x + nx * t.Size.x;
+            float worldZ = t.Origin.z + nz * t.Size.z;
+            return new Vector3(worldX, worldY, worldZ);
+        }
+
+        private static float SlopeAt(SceneBuilder.TerrainBuildResult t, float nx, float nz)
+        {
+            Vector3 n = t.Data.GetInterpolatedNormal(nx, nz);
+            return Vector3.Angle(n, Vector3.up);
+        }
+
+        /// <summary>Interpolated terrain height at an arbitrary WORLD-space X/Z (inverse of WorldFromNormalized's X/Z mapping), clamped to the terrain extents.</summary>
+        private static float SampleHeightAtWorld(SceneBuilder.TerrainBuildResult t, float worldX, float worldZ)
+        {
+            float nx = Mathf.Clamp01((worldX - t.Origin.x) / t.Size.x);
+            float nz = Mathf.Clamp01((worldZ - t.Origin.z) / t.Size.z);
+            return t.Data.GetInterpolatedHeight(nx, nz);
+        }
+
+        /// <summary>Interpolated terrain surface normal at an arbitrary WORLD-space X/Z - used to tilt road tiles to the local slope instead of laying them dead flat.</summary>
+        private static Vector3 SampleNormalAtWorld(SceneBuilder.TerrainBuildResult t, float worldX, float worldZ)
+        {
+            float nx = Mathf.Clamp01((worldX - t.Origin.x) / t.Size.x);
+            float nz = Mathf.Clamp01((worldZ - t.Origin.z) / t.Size.z);
+            return t.Data.GetInterpolatedNormal(nx, nz);
+        }
+
+        /// <summary>
+        /// Re-grounds a building on sloped/hillside terrain using its ACTUAL
+        /// footprint and current rotation, not just the single center-point
+        /// height it was originally placed at. Samples terrain height at the
+        /// four rotated footprint corners plus center and uses the highest
+        /// sample, so the building's base never clips into the uphill side
+        /// of the slope (the tradeoff - a small, far less objectionable gap
+        /// on the downhill side - reads much better than intersecting the
+        /// ground). Must be called after the building's final rotation is
+        /// set, since the footprint corners are computed in its own rotated
+        /// local space.
+        /// </summary>
+        private static void GroundBuildingToTerrain(GameObject buildingRoot, SceneBuilder.TerrainBuildResult terrain, string letter, float scale)
+        {
+            Vector2 footprint = KayKitIntegration.GetBuildingFootprint(letter);
+            float halfW = footprint.x * 0.5f * scale;
+            float halfD = footprint.y * 0.5f * scale;
+            Vector3 pos = buildingRoot.transform.position;
+            Vector3 right = buildingRoot.transform.right;
+            Vector3 fwd = buildingRoot.transform.forward;
+
+            float maxY = float.NegativeInfinity;
+            Vector2[] corners = { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(-1f, 1f), new Vector2(1f, 1f), Vector2.zero };
+            foreach (var c in corners)
+            {
+                Vector3 sampleWorld = pos + right * (c.x * halfW) + fwd * (c.y * halfD);
+                float h = SampleHeightAtWorld(terrain, sampleWorld.x, sampleWorld.z);
+                if (h > maxY) maxY = h;
+            }
+            buildingRoot.transform.position = new Vector3(pos.x, maxY, pos.z);
+        }
+
+        /// <summary>
+        /// Final, measurement-based grounding correction. Everything above
+        /// (SnapToGround at instantiation time, GroundBuildingToTerrain's
+        /// footprint-corner height sampling) works by translating the whole
+        /// building rigidly, which is correct in principle - but the
+        /// acceptance bar here is "does the mesh actually touch the ground
+        /// right now," not "did every earlier step's math stay consistent."
+        /// This measures the building's REAL combined renderer bounds after
+        /// scale/rotation/XZ-push are all final, samples real terrain height
+        /// under that ACTUAL footprint (not the static per-letter size
+        /// table), and applies one direct corrective translation - so it
+        /// self-corrects regardless of any drift accumulated earlier.
+        /// </summary>
+        private static void FinalGroundingPass(GameObject buildingRoot, SceneBuilder.TerrainBuildResult terrain)
+        {
+            var renderers = buildingRoot.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return;
+
+            Bounds combined = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) combined.Encapsulate(renderers[i].bounds);
+
+            // Highest of the four actual-footprint corners + center, same
+            // conservative hillside logic as GroundBuildingToTerrain (a small
+            // downhill gap reads far better than clipping into the uphill
+            // side).
+            float maxY = float.NegativeInfinity;
+            Vector2[] corners =
+            {
+                new Vector2(combined.min.x, combined.min.z), new Vector2(combined.max.x, combined.min.z),
+                new Vector2(combined.min.x, combined.max.z), new Vector2(combined.max.x, combined.max.z),
+                new Vector2(combined.center.x, combined.center.z),
+            };
+            foreach (var c in corners)
+            {
+                float h = SampleHeightAtWorld(terrain, c.x, c.y);
+                if (h > maxY) maxY = h;
+            }
+
+            float delta = maxY - combined.min.y;
+            if (Mathf.Abs(delta) > 0.001f)
+            {
+                buildingRoot.transform.position += new Vector3(0f, delta, 0f);
+            }
+        }
+
+        // Route-corridor clearance constants - kept numerically identical to
+        // KayKitLayoutDiagnostic's RouteHalfWidth/TargetClearance so anything
+        // that satisfies these checks at generation time also reads as
+        // "clear" (not just "not CRITICAL") when independently re-verified.
+        private const float RouteHalfWidth = 0.8f;
+        private const float RouteTargetClearance = 2.0f;
+
+        /// <summary>Point-to-segment distance in the XZ plane (world space, Y ignored).</summary>
+        private static float DistancePointToSegmentXZ(Vector3 p, Vector3 a, Vector3 b)
+        {
+            Vector2 p2 = new Vector2(p.x, p.z);
+            Vector2 a2 = new Vector2(a.x, a.z);
+            Vector2 b2 = new Vector2(b.x, b.z);
+            Vector2 ab = b2 - a2;
+            float len2 = ab.sqrMagnitude;
+            if (len2 < 0.0001f) return Vector2.Distance(p2, a2);
+            float t = Mathf.Clamp01(Vector2.Dot(p2 - a2, ab) / len2);
+            Vector2 proj = a2 + ab * t;
+            return Vector2.Distance(p2, proj);
+        }
+
+        /// <summary>Closest distance (world space, XZ) from a world point to any segment of the route corridor.</summary>
+        private static float MinDistanceToCorridorWorldXZ(List<(Vector3 a, Vector3 b)> corridorWorld, Vector3 worldPoint)
+        {
+            float min = float.PositiveInfinity;
+            foreach (var (a, b) in corridorWorld)
+            {
+                float d = DistancePointToSegmentXZ(worldPoint, a, b);
+                if (d < min) min = d;
+            }
+            return min;
+        }
+
+        /// <summary>
+        /// Section-4 building placement rule, implemented directly: measures
+        /// a building's ACTUAL collider footprint (falling back to renderer
+        /// bounds if it has no collider) against the real route corridor and,
+        /// if it overlaps or sits inside the required clearance, pushes the
+        /// building directly away from the nearest corridor segment until
+        /// clear - then re-grounds it, since the push only changes X/Z. A
+        /// building already clear is left untouched. maxTotalPush optionally
+        /// caps how far a building may move (used for Hospital/Shelter so
+        /// they stay within their own 7m MissionZoneTrigger's reach of the
+        /// path they were pushed off of).
+        /// </summary>
+        private static void EnsureClearOfCorridor(GameObject buildingRoot, SceneBuilder.TerrainBuildResult terrain, List<(Vector3 a, Vector3 b)> corridorWorld, string letter, float scale, float maxTotalPush = float.PositiveInfinity)
+        {
+            var colliders = buildingRoot.GetComponentsInChildren<Collider>();
+            Bounds bounds;
+            if (colliders.Length > 0)
+            {
+                bounds = colliders[0].bounds;
+                for (int i = 1; i < colliders.Length; i++) bounds.Encapsulate(colliders[i].bounds);
+            }
+            else
+            {
+                var renderers = buildingRoot.GetComponentsInChildren<Renderer>();
+                if (renderers.Length == 0) return;
+                bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            }
+
+            float footprintRadius = Mathf.Max(bounds.extents.x, bounds.extents.z);
+            float requiredClearance = footprintRadius + RouteHalfWidth + RouteTargetClearance;
+            float totalPushed = 0f;
+
+            for (int pass = 0; pass < 10; pass++)
+            {
+                Vector3 center = buildingRoot.transform.position;
+                Vector2 c2 = new Vector2(center.x, center.z);
+                Vector2 accum = Vector2.zero;
+                float worstDeficit = 0f;
+                bool anyViolation = false;
+                // Sum an escape vector from EVERY corridor segment currently
+                // too close, not just the single nearest one - a building
+                // whose own path arrives right at its placement point (true
+                // of both Hospital and Shelter) sits at a junction of two
+                // segments, and pushing away from only one at a time just
+                // oscillates between them instead of escaping the wedge.
+                foreach (var (a, b) in corridorWorld)
+                {
+                    Vector2 a2 = new Vector2(a.x, a.z);
+                    Vector2 b2 = new Vector2(b.x, b.z);
+                    Vector2 ab = b2 - a2;
+                    float len2 = ab.sqrMagnitude;
+                    float t = len2 < 0.0001f ? 0f : Mathf.Clamp01(Vector2.Dot(c2 - a2, ab) / len2);
+                    Vector2 proj = a2 + ab * t;
+                    float dist = Vector2.Distance(c2, proj);
+                    if (dist >= requiredClearance) continue;
+
+                    anyViolation = true;
+                    float deficit = requiredClearance - dist;
+                    if (deficit > worstDeficit) worstDeficit = deficit;
+                    Vector2 away = c2 - proj;
+                    if (away.sqrMagnitude < 0.0001f)
+                    {
+                        away = Perp(ab);
+                        if (away.sqrMagnitude < 0.0001f) away = Vector2.right;
+                    }
+                    away.Normalize();
+                    accum += away * deficit;
+                }
+                if (!anyViolation) break;
+                if (totalPushed >= maxTotalPush) break;
+                if (accum.sqrMagnitude < 0.0001f) break;
+                accum.Normalize();
+
+                float pushDist = Mathf.Min(worstDeficit * 0.6f + 0.3f, maxTotalPush - totalPushed);
+                if (pushDist <= 0.0001f) break;
+                buildingRoot.transform.position += new Vector3(accum.x, 0f, accum.y) * pushDist;
+                totalPushed += pushDist;
+            }
+
+            // The push (if any) only touched X/Z - re-ground so the building
+            // still sits flush with the terrain at its final position. Uses
+            // the building's ACTUAL measured bounds (FinalGroundingPass),
+            // not a repeat of the static-footprint sampling above, so this
+            // is the single source of truth for "is this building really
+            // touching the ground" regardless of anything upstream.
+            FinalGroundingPass(buildingRoot, terrain);
+        }
+
+        /// <summary>
+        /// Fence-specific clearance helper: a fence run is offset parallel to
+        /// its own settlement spine (which is itself part of the corridor),
+        /// so the interesting failure case isn't the spine it runs beside but
+        /// a DIFFERENT corridor segment (e.g. the main spawn/hospital/shelter
+        /// road) passing close to it. Builds the fence for real at a
+        /// candidate offset, measures every ACTUAL Post_N world position it
+        /// produced against the corridor (not a hand-derived approximation
+        /// of where they'd land), and - if any post is still too close -
+        /// destroys that attempt and rebuilds further out. This can never
+        /// drift out of sync with what BuildFenceRun/terrain height actually
+        /// produce, unlike predicting post positions with a parallel formula.
+        /// </summary>
+        private static GameObject BuildFenceRunClearOfCorridor(Transform parent, SceneBuilder.TerrainBuildResult terrain, Vector2 spineA, Vector2 spineB, List<(Vector3 a, Vector3 b)> corridorWorld, float requiredWorldRadius)
+        {
+            // Trim both ends back from the spine's own endpoints first: those
+            // endpoints are exactly where the settlement's OTHER connecting
+            // road arrives, so a fence running flush to them will always
+            // cross that other road somewhere along an offset copy of the
+            // spine, no matter how far the offset - trimming leaves a
+            // deliberate opening at each road junction instead (also just
+            // reads better than a fence walling off the entrance it flanks).
+            Vector2 trimmedA = Vector2.Lerp(spineA, spineB, 0.12f);
+            Vector2 trimmedB = Vector2.Lerp(spineA, spineB, 0.88f);
+
+            Vector2 perp = Perp(spineB - spineA);
+            float offsetMag = 0.03f;
+            GameObject fence = null;
+
+            for (int pass = 0; pass < 12; pass++)
+            {
+                if (fence != null) Object.DestroyImmediate(fence);
+
+                Vector2 a01 = trimmedA + perp * offsetMag;
+                Vector2 b01 = trimmedB + perp * offsetMag;
+                fence = BuildFenceRun(parent, WorldFromNormalized(terrain, a01.x, a01.y), WorldFromNormalized(terrain, b01.x, b01.y));
+                if (fence == null) return null;
+
+                float worstClearance = float.PositiveInfinity;
+                foreach (Transform child in fence.transform)
+                {
+                    if (!child.name.StartsWith("Post_")) continue;
+                    float d = MinDistanceToCorridorWorldXZ(corridorWorld, child.position);
+                    if (d < worstClearance) worstClearance = d;
+                }
+                if (worstClearance >= requiredWorldRadius) break;
+                offsetMag += 0.006f;
+            }
+            return fence;
+        }
+
+        /// <summary>Closest point to <paramref name="p"/> on segment a-b, in the same normalized terrain space.</summary>
+        private static Vector2 NearestPointOnSegment(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float len2 = ab.sqrMagnitude;
+            if (len2 < 0.0000001f) return a;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / len2);
+            return a + ab * t;
+        }
+
+        /// <summary>90-degree rotation of a 2D direction, normalized.</summary>
+        private static Vector2 Perp(Vector2 v)
+        {
+            var p = new Vector2(-v.y, v.x);
+            return p.sqrMagnitude > 0.0001f ? p.normalized : p;
+        }
+
+        public static EnvResult Populate(SceneBuilder.TerrainBuildResult terrain)
+        {
+            // ---------------------------------------------------------------
+            // DIRECTIVE E (manual level design hand-off): this method used to
+            // procedurally generate the entire settlement - 12 generic
+            // buildings, ~46 trees, rock clusters, shrub clusters, fences,
+            // KayKit road tiles, utility poles, roadside greenery. All of that
+            // generation has been removed. The designer now places every one
+            // of those pieces by hand in the Scene view, under the
+            // "ManualLevel" hierarchy that SceneBuilder.BuildDemoScene()
+            // creates once and never destroys (see
+            // SceneBuilder.EnsureManualLevelHierarchy).
+            //
+            // What THIS method still owns, every regeneration, is strictly
+            // gameplay infrastructure that the mission/emergency/scoring
+            // systems depend on: the play-area boundary, the three mission
+            // POI markers (Hospital / Emergency Shelter / Highest Point) with
+            // their trigger colliders, the player, and the camera. None of
+            // this is "visual art" - the small flagpole/cross beacons on each
+            // POI marker are cheap, self-contained wayfinding geometry (they
+            // existed before this pass too) that make a mission location
+            // readable even before a hand-placed building sits on top of it.
+            //
+            // The old procedural methods this used to call (BuildSimpleBuilding,
+            // the KayKitIntegration tree/rock/shrub/road builders, BuildPath,
+            // BuildFenceRun/BuildFenceRunClearOfCorridor, BuildUtilityLine,
+            // LineShrubs, GroundBuildingToTerrain, EnsureClearOfCorridor, etc.)
+            // are left in the codebase unused rather than deleted, per this
+            // project's file-safety convention - nothing about them is broken,
+            // they're just no longer called from here.
+            // ---------------------------------------------------------------
+
+            var result = new EnvResult();
+            var envRoot = new GameObject("Environment");
+
+            // ---- Play-area boundary (see BuildBoundaryWalls) - a
+            // safety-critical gameplay guard, not set dressing, so it is
+            // still built first, ahead of everything else. ----
+            BuildBoundaryWalls(envRoot.transform, terrain);
+
+            // ---- Wayfinding marker materials ----
+            var hospitalFlagMat = SharedAssetUtility.CreateEmissiveMaterial("HospitalFlag", new Color(0.85f, 0.1f, 0.1f), new Color(0.9f, 0.15f, 0.15f) * 1.4f);
+            var shelterFlagMat = SharedAssetUtility.CreateEmissiveMaterial("ShelterFlag", new Color(0.95f, 0.6f, 0.1f), new Color(0.95f, 0.6f, 0.1f) * 1.2f);
+            var summitFlagMat = SharedAssetUtility.CreateEmissiveMaterial("SummitFlag", new Color(0.95f, 0.8f, 0.15f), new Color(0.95f, 0.8f, 0.15f) * 1.4f);
+
+            // ---- Key locations (normalized terrain space) ----
+            // Canonical spawn/POI positions - unchanged from the previous
+            // procedural layout, so the mission geography stays the same
+            // place a designer may already know from earlier builds.
+            Vector2 playerStart01 = new Vector2(0.50f, 0.10f);
+            Vector2 hospital01 = new Vector2(0.44f, 0.40f);
+            Vector2 shelter01 = new Vector2(0.60f, 0.28f);
+
+            // ---- Hospital POI ----
+            // Phase 5 (manual level design): the gameplay marker + mission
+            // trigger live on a dedicated "Hospital_POI" GameObject,
+            // independent of any visual building mesh. An empty
+            // "HospitalVisual" child transform marks the suggested spot for
+            // the hand-placed KayKit building - move the visual anywhere
+            // nearby (e.g. into ManualLevel/Buildings); the mission trigger
+            // does not move with it.
+            Vector3 hospitalPos = WorldFromNormalized(terrain, hospital01.x, hospital01.y);
+            var hospitalPoi = new GameObject("Hospital_POI");
+            hospitalPoi.transform.SetParent(envRoot.transform);
+            hospitalPoi.transform.position = hospitalPos;
+            var hospitalVisual = new GameObject("HospitalVisual");
+            hospitalVisual.transform.SetParent(hospitalPoi.transform);
+            hospitalVisual.transform.localPosition = Vector3.zero;
+            AddFlagpole(hospitalPoi.transform, Vector3.zero, hospitalFlagMat, poleName: "Hospital");
+            SetupPoi(hospitalPoi, PoiType.Hospital, "HOSPITAL", new Color(0.9f, 0.15f, 0.15f), out var hospitalTrigger);
+            result.HospitalBuilding = hospitalPoi;
+            result.HospitalTrigger = hospitalTrigger;
+
+            // ---- Shelter POI ----
+            // Same marker/visual split - "EmergencyShelter_POI" carries the
+            // trigger, "ShelterVisual" is the empty placeholder for the
+            // hand-placed building.
+            Vector3 shelterPos = WorldFromNormalized(terrain, shelter01.x, shelter01.y);
+            var shelterPoi = new GameObject("EmergencyShelter_POI");
+            shelterPoi.transform.SetParent(envRoot.transform);
+            shelterPoi.transform.position = shelterPos;
+            var shelterVisual = new GameObject("ShelterVisual");
+            shelterVisual.transform.SetParent(shelterPoi.transform);
+            shelterVisual.transform.localPosition = Vector3.zero;
+            AddFlagpole(shelterPoi.transform, Vector3.zero, shelterFlagMat, poleName: "Shelter");
+            SetupPoi(shelterPoi, PoiType.EmergencyShelter, "EMERGENCY SHELTER", new Color(0.2f, 0.5f, 0.9f), out var shelterTrigger);
+            result.ShelterBuilding = shelterPoi;
+            result.ShelterTrigger = shelterTrigger;
+
+            // ---- Highest point marker (the Summit POI) ----
+            // Kept under the exact name "HighestPointMarker" - this is
+            // looked up via GameObject.Find("HighestPointMarker") in
+            // KayKitLayoutDiagnostic.cs. Its position is derived from the
+            // terrain heightmap itself (not a hand-placed spot), so unlike
+            // Hospital/Shelter there is no separate "visual" placeholder to
+            // decouple - this object already only carries a small flagpole
+            // marker plus the trigger, nothing a designer needs to move.
+            Vector3 summitLocal = TerrainGenerator.FindHighestPointLocal(terrain.Data);
+            Vector3 summitWorld = terrain.Origin + summitLocal;
+            var summitGO = new GameObject("HighestPointMarker");
+            summitGO.transform.SetParent(envRoot.transform);
+            summitGO.transform.position = summitWorld;
+            AddFlagpole(summitGO.transform, Vector3.zero, summitFlagMat, poleHeight: 5f, poleName: "Summit");
+            result.SummitLabelText = CreateWorldLabel(summitGO.transform, "HIGHEST POINT", new Vector3(0f, 6.2f, 0f));
+            var summitCollider = summitGO.AddComponent<SphereCollider>();
+            summitCollider.isTrigger = true;
+            summitCollider.radius = 9f;
+            summitCollider.center = new Vector3(0f, 2f, 0f);
+            var summitTrigger = summitGO.AddComponent<MissionZoneTrigger>();
+            result.SummitTrigger = summitTrigger;
+
+            // ---- Player ----
+            Vector3 playerPos = WorldFromNormalized(terrain, playerStart01.x, playerStart01.y);
+            result.Player = KayKitIntegration.BuildPlayer(envRoot.transform, playerPos);
+
+            // ---- Camera ----
+            result.MainCamera = BuildCamera(envRoot.transform, result.Player.transform);
+
+            // Player movement direction is relative to camera facing.
+            var playerScript = result.Player.GetComponent<PlayerController>();
+            if (playerScript != null) playerScript.CameraPivot = result.MainCamera.transform;
+
+            return result;
+        }
+
+        // ---------------------------------------------------------------
+        // Invisible play-area boundary: four thin, non-trigger BoxColliders
+        // sitting a small margin inside the terrain's actual XZ footprint.
+        //
+        // Root cause this exists to fix: the auto-generated TerrainCollider
+        // (created by UnityEngine.Terrain.CreateTerrainGameObject in
+        // SceneBuilder.BuildTerrainAndLighting) only covers the terrain's
+        // exact footprint - Origin.x..Origin.x+Size.x on X, same on Z, with
+        // zero margin. PlayerController applies constant downward gravity
+        // every frame with no boundary check of its own, so a player who
+        // crosses that exact line has no ground under them at all and falls
+        // indefinitely. These walls stop the CharacterController's own
+        // collide-and-slide well before that line is ever reached, without
+        // touching the TerrainCollider or PlayerController.
+        //
+        // The margin (4m) is under 2% of the 400x400 terrain on each side,
+        // so the full intended terrain stays explorable - this is a thin
+        // safety rail at the true edge, not a small boxed-in play area.
+        // ---------------------------------------------------------------
+        private static void BuildBoundaryWalls(Transform parent, SceneBuilder.TerrainBuildResult terrain)
+        {
+            var root = new GameObject("PlayAreaBoundary");
+            root.transform.SetParent(parent);
+
+            const float margin = 4f;
+            const float wallThickness = 4f;
+            const float wallBottomY = -20f;
+            const float wallHeight = 140f; // comfortably covers the 0..85 terrain height range with headroom both ways
+
+            float minX = terrain.Origin.x + margin;
+            float maxX = terrain.Origin.x + terrain.Size.x - margin;
+            float minZ = terrain.Origin.z + margin;
+            float maxZ = terrain.Origin.z + terrain.Size.z - margin;
+            float midX = (minX + maxX) * 0.5f;
+            float midZ = (minZ + maxZ) * 0.5f;
+            float spanX = (maxX - minX) + wallThickness * 2f;
+            float spanZ = (maxZ - minZ) + wallThickness * 2f;
+            float wallY = wallBottomY + wallHeight * 0.5f;
+
+            void AddWall(string name, Vector3 center, Vector3 size)
+            {
+                var go = new GameObject(name);
+                go.transform.SetParent(root.transform);
+                go.transform.position = center;
+                var col = go.AddComponent<BoxCollider>();
+                col.size = size;
+            }
+
+            AddWall("Boundary_North", new Vector3(midX, wallY, maxZ), new Vector3(spanX, wallHeight, wallThickness));
+            AddWall("Boundary_South", new Vector3(midX, wallY, minZ), new Vector3(spanX, wallHeight, wallThickness));
+            AddWall("Boundary_East", new Vector3(maxX, wallY, midZ), new Vector3(wallThickness, wallHeight, spanZ));
+            AddWall("Boundary_West", new Vector3(minX, wallY, midZ), new Vector3(wallThickness, wallHeight, spanZ));
+        }
+
+        // ---------------------------------------------------------------
+        // Buildings
+        // ---------------------------------------------------------------
+        private static GameObject BuildSimpleBuilding(Transform parent, Vector3 groundPos, float width, float depth, float height, Material wallMat, Material roofMat, string name, bool altRoof = false)
+        {
+            var root = new GameObject(name);
+            root.transform.SetParent(parent);
+            root.transform.position = groundPos;
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Body";
+            body.transform.SetParent(root.transform);
+            body.transform.localPosition = new Vector3(0f, height * 0.5f, 0f);
+            body.transform.localScale = new Vector3(width, height, depth);
+            body.GetComponent<Renderer>().sharedMaterial = wallMat;
+            SafeDestroyCollider(body);
+            var boxCol = body.AddComponent<BoxCollider>();
+            boxCol.size = Vector3.one;
+
+            if (altRoof)
+            {
+                // Simple shed/lean-to roof - a single tilted slab - for visual
+                // variety against the gable roofs on the other buildings.
+                var shed = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                shed.name = "Roof";
+                shed.transform.SetParent(root.transform);
+                float shedRise = height * 0.4f;
+                shed.transform.localPosition = new Vector3(0f, height + shedRise * 0.5f, 0f);
+                shed.transform.localScale = new Vector3(width * 1.14f, 0.16f, depth * 1.2f);
+                shed.transform.localRotation = Quaternion.Euler(-Mathf.Atan2(shedRise, depth) * Mathf.Rad2Deg, 0f, 0f);
+                shed.GetComponent<Renderer>().sharedMaterial = roofMat;
+                SafeDestroyCollider(shed);
+            }
+            else
+            {
+                var roof = new GameObject("Roof");
+                roof.transform.SetParent(root.transform);
+                roof.transform.localPosition = new Vector3(0f, height, 0f);
+                var roofMesh = ProceduralMeshFactory.CreateGableRoof(width * 1.12f, depth * 1.12f, height * 0.55f);
+                var mf = roof.AddComponent<MeshFilter>();
+                mf.sharedMesh = roofMesh;
+                var mr = roof.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = roofMat;
+            }
+
+            AddWindowsAndDoor(root.transform, width, depth, height);
+
+            return root;
+        }
+
+        /// <summary>
+        /// Cheap facade detail: a handful of flat emissive-ish window panes on
+        /// the front face plus a door, so buildings read as buildings up close
+        /// instead of flat-colored boxes. Purely cosmetic, no colliders, no
+        /// gameplay effect.
+        /// </summary>
+        private static void AddWindowsAndDoor(Transform buildingRoot, float width, float depth, float height)
+        {
+            var windowMat = SharedAssetUtility.CreateEmissiveMaterial($"WindowGlow_{buildingRoot.gameObject.name}", new Color(0.85f, 0.78f, 0.5f), new Color(0.95f, 0.85f, 0.55f) * 1.1f);
+            var doorMat = SharedAssetUtility.CreateColorMaterial($"Door_{buildingRoot.gameObject.name}", new Color(0.32f, 0.2f, 0.13f));
+
+            float frontZ = depth * 0.5f + 0.03f;
+            float doorWidth = Mathf.Min(0.9f, width * 0.22f);
+            var door = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            door.name = "Door";
+            door.transform.SetParent(buildingRoot, false);
+            door.transform.localPosition = new Vector3(0f, height * 0.28f, frontZ);
+            door.transform.localScale = new Vector3(doorWidth, height * 0.5f, 0.06f);
+            door.GetComponent<Renderer>().sharedMaterial = doorMat;
+            Object.DestroyImmediate(door.GetComponent<Collider>());
+
+            int windowCount = width > 7f ? 2 : 1;
+            float windowSize = Mathf.Min(0.7f, width * 0.16f);
+            for (int side = 0; side < windowCount; side++)
+            {
+                float sign = side == 0 ? -1f : 1f;
+                float xOff = sign * (doorWidth * 0.5f + windowSize * 0.9f + 0.35f);
+                var win = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                win.name = $"Window_{side}";
+                win.transform.SetParent(buildingRoot, false);
+                win.transform.localPosition = new Vector3(xOff, height * 0.6f, frontZ);
+                win.transform.localScale = new Vector3(windowSize, windowSize, 0.05f);
+                win.GetComponent<Renderer>().sharedMaterial = windowMat;
+                Object.DestroyImmediate(win.GetComponent<Collider>());
+            }
+        }
+
+        private static void AddCrossSymbol(Transform buildingRoot, Material crossMat)
+        {
+            var pivot = new GameObject("CrossSymbol");
+            pivot.transform.SetParent(buildingRoot);
+            pivot.transform.localPosition = new Vector3(0f, 3.2f, -4.55f);
+
+            var vertical = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            vertical.name = "Vertical";
+            vertical.transform.SetParent(pivot.transform);
+            vertical.transform.localPosition = Vector3.zero;
+            vertical.transform.localScale = new Vector3(0.5f, 2f, 0.15f);
+            vertical.GetComponent<Renderer>().sharedMaterial = crossMat;
+            SafeDestroyCollider(vertical);
+
+            var horizontal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            horizontal.name = "Horizontal";
+            horizontal.transform.SetParent(pivot.transform);
+            horizontal.transform.localPosition = Vector3.zero;
+            horizontal.transform.localScale = new Vector3(2f, 0.5f, 0.15f);
+            horizontal.GetComponent<Renderer>().sharedMaterial = crossMat;
+            SafeDestroyCollider(horizontal);
+        }
+
+        private static void AddFlagpole(Transform parent, Vector3 localBasePos, Material flagMat, float poleHeight = 3.5f, string poleName = "Pole")
+        {
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pole.name = "Flagpole";
+            pole.transform.SetParent(parent);
+            pole.transform.localPosition = localBasePos + new Vector3(0f, poleHeight * 0.5f, 0f);
+            pole.transform.localScale = new Vector3(0.12f, poleHeight * 0.5f, 0.12f);
+            pole.GetComponent<Renderer>().sharedMaterial = SharedAssetUtility.CreateColorMaterial($"PoleMat_{poleName}", new Color(0.35f, 0.33f, 0.3f));
+            SafeDestroyCollider(pole);
+
+            var flag = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            flag.name = "Flag";
+            flag.transform.SetParent(parent);
+            flag.transform.localPosition = localBasePos + new Vector3(0.6f, poleHeight - 0.6f, 0f);
+            flag.transform.localScale = new Vector3(1.2f, 0.7f, 0.05f);
+            flag.GetComponent<Renderer>().sharedMaterial = flagMat;
+            SafeDestroyCollider(flag);
+        }
+
+        private static void SetupPoi(GameObject building, PoiType type, string label, Color markerColor, out MissionZoneTrigger trigger)
+        {
+            var marker = building.AddComponent<PoiMarker>();
+            marker.Type = type;
+            marker.Label = label;
+
+            var iconPivot = new GameObject("Icon");
+            iconPivot.transform.SetParent(building.transform);
+            iconPivot.transform.localPosition = new Vector3(0f, 7.5f, 0f);
+            var iconMesh = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            iconMesh.name = "IconMesh";
+            iconMesh.transform.SetParent(iconPivot.transform);
+            iconMesh.transform.localScale = Vector3.one * 0.8f;
+            iconMesh.GetComponent<Renderer>().sharedMaterial = SharedAssetUtility.CreateEmissiveMaterial($"POIIcon_{label.Replace(" ", "")}", markerColor, markerColor * 1.5f);
+            SafeDestroyCollider(iconMesh);
+            marker.IconPivot = iconPivot.transform;
+
+            CreateWorldLabel(building.transform, label, new Vector3(0f, 8.5f, 0f));
+
+            var col = building.AddComponent<SphereCollider>();
+            col.isTrigger = true;
+            col.radius = 7f;
+            col.center = new Vector3(0f, 2f, 0f);
+            trigger = building.AddComponent<MissionZoneTrigger>();
+        }
+
+        private static Text CreateWorldLabel(Transform parent, string text, Vector3 localPos, float scale = 0.022f)
+        {
+            var canvasGO = new GameObject($"Label_{text}");
+            canvasGO.transform.SetParent(parent);
+            canvasGO.transform.localPosition = localPos;
+            canvasGO.transform.localRotation = Quaternion.identity;
+            canvasGO.transform.localScale = Vector3.one * scale;
+
+            var canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var rt = canvasGO.GetComponent<RectTransform>();
+            // Final presentation pass: was 400x90 at scale 0.03 (a 12m x 2.7m
+            // physical panel) - large enough to loom over the camera at close
+            // range and clip into a building's own roofline. Smaller panel at
+            // a smaller scale keeps it legible from normal route-following
+            // distance without dominating the view up close.
+            rt.sizeDelta = new Vector2(340f, 78f);
+            canvasGO.AddComponent<CanvasGroup>().blocksRaycasts = false;
+
+            var bgGO = new GameObject("Background");
+            bgGO.transform.SetParent(canvasGO.transform, false);
+            var bgImg = bgGO.AddComponent<Image>();
+            bgImg.color = new Color(0.05f, 0.06f, 0.08f, 0.65f);
+            var bgRt = bgGO.GetComponent<RectTransform>();
+            bgRt.anchorMin = Vector2.zero; bgRt.anchorMax = Vector2.one;
+            bgRt.offsetMin = Vector2.zero; bgRt.offsetMax = Vector2.zero;
+
+            var textGO = new GameObject("Text");
+            textGO.transform.SetParent(canvasGO.transform, false);
+            var uiText = textGO.AddComponent<Text>();
+            uiText.text = text;
+            uiText.font = UIBuilder.GetDefaultFont();
+            uiText.fontSize = 30;
+            uiText.alignment = TextAnchor.MiddleCenter;
+            uiText.color = Color.white;
+            uiText.fontStyle = FontStyle.Bold;
+            var textRt = textGO.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero; textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero; textRt.offsetMax = Vector2.zero;
+
+            canvasGO.AddComponent<BillboardLabel>();
+
+            return uiText;
+        }
+
+        // ---------------------------------------------------------------
+        // Trees
+        // ---------------------------------------------------------------
+        private static GameObject BuildTree(Transform parent, Vector3 pos, Material trunkMat, Material foliageMat, Mesh coneBig, Mesh coneSmall)
+        {
+            float scale = Random.Range(0.8f, 1.3f);
+            var root = new GameObject("Tree");
+            root.transform.SetParent(parent);
+            root.transform.position = pos;
+            root.transform.localScale = Vector3.one * scale;
+            root.transform.Rotate(Vector3.up, Random.Range(0f, 360f));
+
+            var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            trunk.name = "Trunk";
+            trunk.transform.SetParent(root.transform);
+            trunk.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+            trunk.transform.localScale = new Vector3(0.28f, 0.9f, 0.28f);
+            trunk.GetComponent<Renderer>().sharedMaterial = trunkMat;
+            SafeDestroyCollider(trunk);
+
+            var foliageLower = new GameObject("FoliageLower");
+            foliageLower.transform.SetParent(root.transform);
+            foliageLower.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+            var mfLower = foliageLower.AddComponent<MeshFilter>();
+            mfLower.sharedMesh = coneBig;
+            foliageLower.AddComponent<MeshRenderer>().sharedMaterial = foliageMat;
+
+            var foliageUpper = new GameObject("FoliageUpper");
+            foliageUpper.transform.SetParent(root.transform);
+            foliageUpper.transform.localPosition = new Vector3(0f, 2.7f, 0f);
+            var mfUpper = foliageUpper.AddComponent<MeshFilter>();
+            mfUpper.sharedMesh = coneSmall;
+            foliageUpper.AddComponent<MeshRenderer>().sharedMaterial = foliageMat;
+
+            return root;
+        }
+
+        // ---------------------------------------------------------------
+        // Player - stylized low-poly hiker: head, torso, two arms, two legs,
+        // backpack. Built entirely from primitives (no imported model/rig) so
+        // it stays tiny and WebGL-safe. Limbs are separate pivots so
+        // ProceduralCharacterAnimator can swing them for a walk cycle instead
+        // of the old static capsule.
+        // ---------------------------------------------------------------
+        private static GameObject BuildPlayer(Transform parent, Vector3 pos)
+        {
+            var root = new GameObject("Player");
+            root.transform.SetParent(parent);
+            root.transform.position = pos;
+            root.tag = "Player";
+
+            var controller = root.AddComponent<CharacterController>();
+            controller.center = new Vector3(0f, 0.95f, 0f);
+            controller.height = 1.9f;
+            controller.radius = 0.45f;
+
+            // Kinematic Rigidbody guarantees OnTriggerEnter fires reliably for the
+            // mission zone triggers regardless of CharacterController trigger nuances.
+            var rb = root.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+
+            var jacketMat = SharedAssetUtility.CreateColorMaterial("PlayerJacket", new Color(0.16f, 0.42f, 0.78f));
+            var pantsMat = SharedAssetUtility.CreateColorMaterial("PlayerPants", new Color(0.3f, 0.27f, 0.24f));
+            var accentMat = SharedAssetUtility.CreateColorMaterial("PlayerAccent", new Color(0.95f, 0.6f, 0.15f));
+            var skinMat = SharedAssetUtility.CreateColorMaterial("PlayerSkin", new Color(0.87f, 0.68f, 0.55f));
+            var shoeMat = SharedAssetUtility.CreateColorMaterial("PlayerShoe", new Color(0.22f, 0.18f, 0.16f));
+            var faceMat = SharedAssetUtility.CreateColorMaterial("PlayerFace", new Color(0.15f, 0.14f, 0.16f));
+            // A distinct, slightly darker shade from the accent trim so the
+            // backpack reads as its own object instead of blending into the
+            // beanie/collar as one same-colored mass.
+            var packMat = SharedAssetUtility.CreateColorMaterial("PlayerPack", new Color(0.62f, 0.32f, 0.1f));
+            var eyeMat = SharedAssetUtility.CreateColorMaterial("PlayerEye", new Color(0.08f, 0.08f, 0.09f), smoothness: 0.4f);
+            // Darker rib-knit shade of the jacket color, used only for the
+            // waist hem and wrist cuffs - gives the jacket a knitted-trim edge
+            // instead of a flat capsule with no boundary at all.
+            var jacketTrimMat = SharedAssetUtility.CreateColorMaterial("PlayerJacketTrim", new Color(0.1f, 0.28f, 0.54f));
+            // A lighter, contrasting strip for the boot sole so boots read as
+            // their own object instead of blending into the pant leg - pants
+            // and the old shoe color were too close in value to separate.
+            var soleMat = SharedAssetUtility.CreateColorMaterial("PlayerSole", new Color(0.56f, 0.51f, 0.44f));
+            // Small cream pom-pom on the beanie - a cheap, cozy accent detail.
+            var pomMat = SharedAssetUtility.CreateColorMaterial("PlayerPom", new Color(0.95f, 0.92f, 0.85f));
+
+            // VisualRoot carries every rendered part; ProceduralCharacterAnimator
+            // bobs/sways *this* transform while limb pivots swing independently,
+            // so none of it ever touches CharacterController/collision.
+            var visualRoot = new GameObject("CharacterVisual");
+            visualRoot.transform.SetParent(root.transform, false);
+
+            // Optional localRot (defaults to identity) lets a handful of new
+            // parts - the bedroll strapped to the backpack - lie on their
+            // side without every other MakePart call needing to pass one.
+            GameObject MakePart(string name, Transform parentT, PrimitiveType prim, Vector3 localPos, Vector3 localScale, Material mat, Quaternion? localRot = null)
+            {
+                var go = GameObject.CreatePrimitive(prim);
+                go.name = name;
+                go.transform.SetParent(parentT, false);
+                go.transform.localPosition = localPos;
+                go.transform.localRotation = localRot ?? Quaternion.identity;
+                go.transform.localScale = localScale;
+                go.GetComponent<Renderer>().sharedMaterial = mat;
+                SafeDestroyCollider(go);
+                return go;
+            }
+
+            // ---- Legs (hip pivots so the animator can swing them). Capsules
+            // read as rounded limbs instead of blocky cubes - only the visual
+            // primitive changed here; the pivot hierarchy/animation is untouched,
+            // and the collider each primitive comes with is destroyed immediately
+            // below (same SafeDestroyCollider path every other prop already uses),
+            // so no CapsuleCollider component is ever serialized into the scene.
+            // Boots are enlarged slightly and given a lighter sole strip so they
+            // read as boots instead of merging into the pant leg as one dark
+            // blob (the pants/old-shoe colors were too close in value). ----
+            var leftLegPivot = new GameObject("LeftLegPivot");
+            leftLegPivot.transform.SetParent(visualRoot.transform, false);
+            leftLegPivot.transform.localPosition = new Vector3(-0.15f, 0.9f, 0f);
+            MakePart("LeftLeg", leftLegPivot.transform, PrimitiveType.Capsule, new Vector3(0f, -0.42f, 0f), new Vector3(0.22f, 0.42f, 0.22f), pantsMat);
+            MakePart("LeftShoe", leftLegPivot.transform, PrimitiveType.Cube, new Vector3(0f, -0.87f, 0.06f), new Vector3(0.27f, 0.2f, 0.37f), shoeMat);
+            MakePart("LeftSole", leftLegPivot.transform, PrimitiveType.Cube, new Vector3(0f, -0.98f, 0.06f), new Vector3(0.29f, 0.06f, 0.39f), soleMat);
+
+            var rightLegPivot = new GameObject("RightLegPivot");
+            rightLegPivot.transform.SetParent(visualRoot.transform, false);
+            rightLegPivot.transform.localPosition = new Vector3(0.15f, 0.9f, 0f);
+            MakePart("RightLeg", rightLegPivot.transform, PrimitiveType.Capsule, new Vector3(0f, -0.42f, 0f), new Vector3(0.22f, 0.42f, 0.22f), pantsMat);
+            MakePart("RightShoe", rightLegPivot.transform, PrimitiveType.Cube, new Vector3(0f, -0.87f, 0.06f), new Vector3(0.27f, 0.2f, 0.37f), shoeMat);
+            MakePart("RightSole", rightLegPivot.transform, PrimitiveType.Cube, new Vector3(0f, -0.98f, 0.06f), new Vector3(0.29f, 0.06f, 0.39f), soleMat);
+
+            // ---- Torso: a rounded capsule body plus a small collar band at
+            // the neckline, so it reads as a jacket rather than a chest plate.
+            // Widened slightly (0.5 -> 0.56) for a heartier, more game-character
+            // silhouette instead of a slim capsule. A darker hem band at the
+            // waist gives the jacket a bottom edge instead of just fading into
+            // the hips, echoing the wrist cuffs added on the arms below. ----
+            MakePart("Torso", visualRoot.transform, PrimitiveType.Capsule, new Vector3(0f, 1.17f, 0f), new Vector3(0.56f, 0.32f, 0.34f), jacketMat);
+            MakePart("JacketHem", visualRoot.transform, PrimitiveType.Cube, new Vector3(0f, 0.87f, 0f), new Vector3(0.52f, 0.06f, 0.32f), jacketTrimMat);
+            MakePart("Collar", visualRoot.transform, PrimitiveType.Cube, new Vector3(0f, 1.46f, 0f), new Vector3(0.38f, 0.08f, 0.3f), accentMat);
+            // A vertical zip stripe breaks up the torso's flat color block so
+            // it reads as a jacket with structure rather than a plain capsule.
+            MakePart("ZipStripe", visualRoot.transform, PrimitiveType.Cube, new Vector3(0f, 1.12f, 0.29f), new Vector3(0.05f, 0.42f, 0.04f), accentMat);
+
+            // ---- Arms (shoulder pivots). Widened slightly (0.34 -> 0.38) to
+            // match the broader torso. A small trim cuff at each wrist, just
+            // above the hand, gives the sleeve a defined end instead of the
+            // capsule simply stopping. ----
+            var leftArmPivot = new GameObject("LeftArmPivot");
+            leftArmPivot.transform.SetParent(visualRoot.transform, false);
+            leftArmPivot.transform.localPosition = new Vector3(-0.38f, 1.42f, 0f);
+            MakePart("LeftArm", leftArmPivot.transform, PrimitiveType.Capsule, new Vector3(0f, -0.33f, 0f), new Vector3(0.17f, 0.33f, 0.17f), jacketMat);
+            MakePart("LeftCuff", leftArmPivot.transform, PrimitiveType.Cube, new Vector3(0f, -0.58f, 0f), new Vector3(0.19f, 0.05f, 0.19f), jacketTrimMat);
+            MakePart("LeftHand", leftArmPivot.transform, PrimitiveType.Sphere, new Vector3(0f, -0.68f, 0f), Vector3.one * 0.16f, skinMat);
+
+            var rightArmPivot = new GameObject("RightArmPivot");
+            rightArmPivot.transform.SetParent(visualRoot.transform, false);
+            rightArmPivot.transform.localPosition = new Vector3(0.38f, 1.42f, 0f);
+            MakePart("RightArm", rightArmPivot.transform, PrimitiveType.Capsule, new Vector3(0f, -0.33f, 0f), new Vector3(0.17f, 0.33f, 0.17f), jacketMat);
+            MakePart("RightCuff", rightArmPivot.transform, PrimitiveType.Cube, new Vector3(0f, -0.58f, 0f), new Vector3(0.19f, 0.05f, 0.19f), jacketTrimMat);
+            MakePart("RightHand", rightArmPivot.transform, PrimitiveType.Sphere, new Vector3(0f, -0.68f, 0f), Vector3.one * 0.16f, skinMat);
+
+            // ---- Head + simple friendly face (two small round eyes plus the
+            // existing dark visor-ish band beneath them for a mouth/jaw hint).
+            // Head scaled up slightly (0.42 -> 0.47) for a more stylized,
+            // slightly oversized "game character" head-to-body ratio rather
+            // than realistic proportions.
+            //
+            // Beanie is a dome + a flat brim band + a small pom-pom rather
+            // than the previous single full sphere. The old sphere sat mostly
+            // *above* the head with a visible gap underneath it, reading as a
+            // separate floating ball instead of a hat worn on the head; it
+            // also gave the whole silhouette a top-heavy "mushroom" shape.
+            // The dome now sits low enough to overlap the head's crown
+            // (hidden by the head's own opaque surface, same reasoning as
+            // the removed roof underside face), the brim band marks a clear
+            // fold line right above the brow, and everything stays well
+            // above the eyes (dome bottom 1.82 vs eyes at 1.73) so the face
+            // is never occluded. ----
+            MakePart("Head", visualRoot.transform, PrimitiveType.Sphere, new Vector3(0f, 1.7f, 0f), new Vector3(0.47f, 0.45f, 0.47f), skinMat);
+            MakePart("FaceBand", visualRoot.transform, PrimitiveType.Cube, new Vector3(0f, 1.6f, 0.2f), new Vector3(0.24f, 0.06f, 0.05f), faceMat);
+            MakePart("LeftEye", visualRoot.transform, PrimitiveType.Sphere, new Vector3(-0.13f, 1.73f, 0.21f), Vector3.one * 0.08f, eyeMat);
+            MakePart("RightEye", visualRoot.transform, PrimitiveType.Sphere, new Vector3(0.13f, 1.73f, 0.21f), Vector3.one * 0.08f, eyeMat);
+            MakePart("BeanieDome", visualRoot.transform, PrimitiveType.Sphere, new Vector3(0f, 2.08f, 0f), new Vector3(0.49f, 0.26f, 0.49f), accentMat);
+            MakePart("BeanieBrim", visualRoot.transform, PrimitiveType.Cylinder, new Vector3(0f, 1.84f, 0f), new Vector3(0.96f, 0.045f, 0.96f), accentMat);
+            MakePart("BeaniePom", visualRoot.transform, PrimitiveType.Sphere, new Vector3(0f, 2.33f, 0f), Vector3.one * 0.13f, pomMat);
+
+            // ---- Backpack: its own darker-orange material (was reusing the
+            // beanie/collar accent color) so it reads as a separate object
+            // sitting on the character's back rather than merging into one
+            // same-colored mass with the trim details. Enlarged slightly plus
+            // a small top flap and a bedroll cylinder strapped across the top
+            // give it real volume instead of reading as a flat rectangle. ----
+            MakePart("Backpack", visualRoot.transform, PrimitiveType.Cube, new Vector3(0f, 1.2f, -0.27f), new Vector3(0.46f, 0.56f, 0.26f), packMat);
+            MakePart("BackpackFlap", visualRoot.transform, PrimitiveType.Cube, new Vector3(0f, 1.4f, -0.23f), new Vector3(0.4f, 0.16f, 0.22f), packMat);
+            MakePart("Bedroll", visualRoot.transform, PrimitiveType.Cylinder, new Vector3(0f, 1.53f, -0.25f), new Vector3(0.12f, 0.26f, 0.12f), accentMat, Quaternion.Euler(0f, 0f, 90f));
+            MakePart("BackpackStrapL", visualRoot.transform, PrimitiveType.Cube, new Vector3(-0.16f, 1.35f, -0.1f), new Vector3(0.07f, 0.42f, 0.07f), packMat);
+            MakePart("BackpackStrapR", visualRoot.transform, PrimitiveType.Cube, new Vector3(0.16f, 1.35f, -0.1f), new Vector3(0.07f, 0.42f, 0.07f), packMat);
+
+            var cameraPivot = new GameObject("CameraLookTarget");
+            cameraPivot.transform.SetParent(root.transform);
+            cameraPivot.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+
+            var playerScript = root.AddComponent<PlayerController>();
+            playerScript.MoveSpeed = 6.5f;
+
+            // Fall-off-map safety net: separate component (never touches
+            // PlayerController) that teleports the player back to their last
+            // grounded position if they ever end up below the world. See
+            // FallRecoveryGuard for why this is needed even with the
+            // boundary walls in place (defence in depth, not a duplicate).
+            root.AddComponent<DisasterReady.Player.FallRecoveryGuard>();
+
+            var animator = root.AddComponent<DisasterReady.Player.ProceduralCharacterAnimator>();
+            animator.Player = playerScript;
+            animator.VisualRoot = visualRoot.transform;
+            animator.LeftArm = leftArmPivot.transform;
+            animator.RightArm = rightArmPivot.transform;
+            animator.LeftLeg = leftLegPivot.transform;
+            animator.RightLeg = rightLegPivot.transform;
+
+            return root;
+        }
+
+        // ---------------------------------------------------------------
+        // Camera
+        // ---------------------------------------------------------------
+        private static Camera BuildCamera(Transform parent, Transform playerTransform)
+        {
+            var camGO = new GameObject("MainCamera");
+            camGO.transform.SetParent(parent);
+            camGO.tag = "MainCamera";
+            var cam = camGO.AddComponent<Camera>();
+            cam.fieldOfView = 55f;
+            cam.nearClipPlane = 0.3f;
+            cam.farClipPlane = 550f;
+            cam.clearFlags = RenderSettings.skybox != null ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.6f, 0.75f, 0.92f);
+            camGO.AddComponent<AudioListener>();
+
+            var camData = cam.gameObject.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            camData.renderPostProcessing = true;
+            camData.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.FastApproximateAntialiasing;
+
+            var orbit = camGO.AddComponent<OrbitCameraController>();
+            orbit.Target = playerTransform;
+            orbit.StartYaw = 0f;
+            // Slightly lower pitch (34 -> 30) and a touch more distance (10.5
+            // -> 11.5) than before - less "looking straight down at the
+            // ground," more midground/terrain and sky visible in frame, so
+            // exploration reads as a game vista rather than a top-down peek.
+            // Manual orbit/zoom (OrbitCameraController) is untouched.
+            orbit.StartPitch = 30f;
+            orbit.Distance = 11.5f;
+            orbit.TargetOffset = new Vector3(0f, 1.55f, 0f);
+            orbit.PlayerRef = playerTransform.GetComponent<PlayerController>();
+            // Final presentation pass: re-enabled with the redesigned
+            // locked-target implementation (see OrbitCameraController) -
+            // reads raw WASD directly and latches a fixed target yaw only
+            // when the held combination changes, instead of continuously
+            // re-deriving the target from the player's own live facing. That
+            // old approach was what turned "hold S" into a continuous spin;
+            // this one gates S/back-diagonals out of auto-follow entirely
+            // (see ForwardDominantAngle) so they cannot rotate the camera at
+            // all, and everything else converges to a fixed heading instead
+            // of chasing a moving one.
+            orbit.AutoFollowYaw = true;
+
+            return cam;
+        }
+
+        // ---------------------------------------------------------------
+        // Broadleaf tree variant (round canopy instead of conifer cones) -
+        // reuses the same trunk cylinder approach as BuildTree for a
+        // consistent "cheap primitives" build cost.
+        // ---------------------------------------------------------------
+        private static GameObject BuildBroadleafTree(Transform parent, Vector3 pos, Material trunkMat, Material foliageMat)
+        {
+            float scale = Random.Range(0.85f, 1.25f);
+            var root = new GameObject("BroadleafTree");
+            root.transform.SetParent(parent);
+            root.transform.position = pos;
+            root.transform.localScale = Vector3.one * scale;
+            root.transform.Rotate(Vector3.up, Random.Range(0f, 360f));
+
+            var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            trunk.name = "Trunk";
+            trunk.transform.SetParent(root.transform);
+            trunk.transform.localPosition = new Vector3(0f, 0.7f, 0f);
+            trunk.transform.localScale = new Vector3(0.22f, 0.7f, 0.22f);
+            trunk.GetComponent<Renderer>().sharedMaterial = trunkMat;
+            SafeDestroyCollider(trunk);
+
+            // Three overlapping spheres instead of one, so the canopy reads
+            // as a rounded clump rather than a single perfect ball.
+            Vector3[] offsets =
+            {
+                new Vector3(0f, 1.85f, 0f),
+                new Vector3(0.42f, 1.65f, 0.15f),
+                new Vector3(-0.38f, 1.6f, -0.2f),
+            };
+            float[] sizes = { 1.15f, 0.8f, 0.75f };
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                var lobe = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                lobe.name = $"CanopyLobe_{i}";
+                lobe.transform.SetParent(root.transform);
+                lobe.transform.localPosition = offsets[i];
+                lobe.transform.localScale = Vector3.one * sizes[i];
+                lobe.GetComponent<Renderer>().sharedMaterial = foliageMat;
+                SafeDestroyCollider(lobe);
+            }
+
+            return root;
+        }
+
+        // ---------------------------------------------------------------
+        // Rock cluster - 2-4 small rotated/scaled cubes grouped together, the
+        // same "cheap primitive, stylized by transform variety" trick used
+        // for everything else in this file.
+        // ---------------------------------------------------------------
+        private static void BuildRockCluster(Transform parent, Vector3 pos, Material rockMat)
+        {
+            var root = new GameObject("RockCluster");
+            root.transform.SetParent(parent);
+            root.transform.position = pos;
+            root.transform.Rotate(Vector3.up, Random.Range(0f, 360f));
+
+            int count = Random.Range(2, 4);
+            for (int i = 0; i < count; i++)
+            {
+                var rock = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rock.name = $"Rock_{i}";
+                rock.transform.SetParent(root.transform);
+                Vector2 jitter = Random.insideUnitCircle * 0.5f;
+                float h = Random.Range(0.22f, 0.5f);
+                rock.transform.localPosition = new Vector3(jitter.x, h * 0.4f, jitter.y);
+                rock.transform.localRotation = Quaternion.Euler(Random.Range(-12f, 12f), Random.Range(0f, 360f), Random.Range(-12f, 12f));
+                rock.transform.localScale = new Vector3(h * Random.Range(0.8f, 1.3f), h, h * Random.Range(0.8f, 1.3f));
+                rock.GetComponent<Renderer>().sharedMaterial = rockMat;
+                SafeDestroyCollider(rock);
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Shrub / ground-cover clump - 2-3 small flattened spheres grouped
+        // together, same cheap-primitive trick as rocks but smaller and
+        // lower so it reads as low vegetation rather than a boulder.
+        // ---------------------------------------------------------------
+        private static void BuildShrubCluster(Transform parent, Vector3 pos, Material shrubMat)
+        {
+            var root = new GameObject("Shrub");
+            root.transform.SetParent(parent);
+            root.transform.position = pos;
+            root.transform.Rotate(Vector3.up, Random.Range(0f, 360f));
+
+            int count = Random.Range(2, 4);
+            for (int i = 0; i < count; i++)
+            {
+                var lobe = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                lobe.name = $"Lobe_{i}";
+                lobe.transform.SetParent(root.transform);
+                Vector2 jitter = Random.insideUnitCircle * 0.28f;
+                float h = Random.Range(0.16f, 0.3f);
+                lobe.transform.localPosition = new Vector3(jitter.x, h * 0.6f, jitter.y);
+                lobe.transform.localScale = new Vector3(h * Random.Range(1.1f, 1.5f), h * 0.85f, h * Random.Range(1.1f, 1.5f));
+                lobe.GetComponent<Renderer>().sharedMaterial = shrubMat;
+                SafeDestroyCollider(lobe);
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Simple dirt footpath: a chain of thin, flattened box segments that
+        // follow the terrain height between two normalized points. Purely
+        // cosmetic (no colliders, offset +0.05 above the surface to avoid
+        // z-fighting) so it can never interfere with movement or triggers.
+        // ---------------------------------------------------------------
+        private static void BuildPath(Transform parent, SceneBuilder.TerrainBuildResult terrain, Vector2 from01, Vector2 to01, Material pathMat, float width = 1.4f)
+        {
+            var root = new GameObject("Path");
+            root.transform.SetParent(parent);
+
+            const int segments = 16;
+            Vector3 prev = WorldFromNormalized(terrain, from01.x, from01.y);
+            for (int i = 1; i <= segments; i++)
+            {
+                float t = (float)i / segments;
+                Vector2 p01 = Vector2.Lerp(from01, to01, t);
+                Vector3 cur = WorldFromNormalized(terrain, p01.x, p01.y);
+                Vector3 delta = cur - prev;
+                float len = delta.magnitude;
+                if (len > 0.01f)
+                {
+                    Vector3 mid = (prev + cur) * 0.5f + Vector3.up * 0.05f;
+                    var seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    seg.name = $"PathSeg_{i}";
+                    seg.transform.SetParent(root.transform);
+                    seg.transform.position = mid;
+                    seg.transform.rotation = Quaternion.LookRotation(delta.normalized);
+                    seg.transform.localScale = new Vector3(width, 0.06f, len * 1.08f);
+                    seg.GetComponent<Renderer>().sharedMaterial = pathMat;
+                    SafeDestroyCollider(seg);
+                }
+                prev = cur;
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Simple fence: a straight run of posts + a rail between two world
+        // points. Bracketed around each settlement cluster, so it needs to
+        // read as a real boundary the player can't just walk through - it
+        // keeps its default primitive BoxColliders (posts + rail) instead of
+        // the SafeDestroyCollider(...) pass used for purely decorative props.
+        // The rail's collider alone already spans the whole run at chest/leg
+        // height, which is enough to stop the CharacterController; the posts
+        // keep their colliders too so a player approaching at a shallow angle
+        // still can't slip through at a post gap.
+        // ---------------------------------------------------------------
+        private static GameObject BuildFenceRun(Transform parent, Vector3 from, Vector3 to)
+        {
+            var woodMat = SharedAssetUtility.CreateColorMaterial("FenceWood", new Color(0.42f, 0.32f, 0.22f));
+            var root = new GameObject("Fence");
+            root.transform.SetParent(parent);
+            root.transform.position = from;
+
+            Vector3 delta = to - from;
+            float length = delta.magnitude;
+            if (length < 0.01f) return root;
+            Vector3 dir = delta / length;
+            Quaternion rot = Quaternion.LookRotation(dir);
+
+            int postCount = Mathf.Max(2, Mathf.RoundToInt(length / 2.5f) + 1);
+            for (int i = 0; i < postCount; i++)
+            {
+                float t = (float)i / (postCount - 1);
+                Vector3 p = Vector3.Lerp(from, to, t);
+                var post = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                post.name = $"Post_{i}";
+                post.transform.SetParent(root.transform);
+                post.transform.position = p + new Vector3(0f, 0.45f, 0f);
+                post.transform.localScale = new Vector3(0.1f, 0.9f, 0.1f);
+                post.GetComponent<Renderer>().sharedMaterial = woodMat;
+                // Collider intentionally kept (default BoxCollider from
+                // CreatePrimitive, already sized/scaled correctly) so the
+                // fence actually blocks the player - see the comment above
+                // BuildFenceRun.
+            }
+
+            var rail = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            rail.name = "Rail";
+            rail.transform.SetParent(root.transform);
+            rail.transform.position = from + dir * (length * 0.5f) + new Vector3(0f, 0.65f, 0f);
+            rail.transform.rotation = rot;
+            rail.transform.localScale = new Vector3(0.06f, 0.08f, length);
+            rail.GetComponent<Renderer>().sharedMaterial = woodMat;
+            // Rail's collider is deliberately thin (matches its visual size)
+            // but spans the full run length, which is enough for the
+            // CharacterController's capsule sweep to catch it - kept for the
+            // same reason as the posts above.
+            return root;
+        }
+
+        // ---------------------------------------------------------------
+        // Utility line: a row of simple poles following a normalized-space
+        // path with a thin sagging wire strung pole-to-pole. Purely cosmetic
+        // (no colliders) - a cheap, high-recognition "this is a settlement
+        // with infrastructure" cue that reads clearly even at a distance.
+        // ---------------------------------------------------------------
+        private static void BuildUtilityLine(Transform parent, SceneBuilder.TerrainBuildResult terrain, Vector2 from01, Vector2 to01, Material poleMat, Material wireMat)
+        {
+            var root = new GameObject("UtilityLine");
+            root.transform.SetParent(parent);
+
+            const int poleCount = 5;
+            const float poleHeight = 4.2f;
+            Vector3 prevTop = Vector3.zero;
+            bool havePrev = false;
+            for (int i = 0; i < poleCount; i++)
+            {
+                float t = (float)i / (poleCount - 1);
+                Vector2 p01 = Vector2.Lerp(from01, to01, t);
+                Vector3 basePos = WorldFromNormalized(terrain, p01.x, p01.y);
+
+                var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                pole.name = $"Pole_{i}";
+                pole.transform.SetParent(root.transform);
+                pole.transform.position = basePos + new Vector3(0f, poleHeight * 0.5f, 0f);
+                pole.transform.localScale = new Vector3(0.1f, poleHeight * 0.5f, 0.1f);
+                pole.GetComponent<Renderer>().sharedMaterial = poleMat;
+                // Collider intentionally kept (default CapsuleCollider from
+                // CreatePrimitive) so the player can't walk straight through
+                // a pole - see the comment above the BuildUtilityLine call
+                // sites about why this changed from purely decorative.
+
+                var crossbar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                crossbar.name = $"Crossbar_{i}";
+                crossbar.transform.SetParent(root.transform);
+                crossbar.transform.position = basePos + new Vector3(0f, poleHeight * 0.94f, 0f);
+                crossbar.transform.localScale = new Vector3(0.9f, 0.06f, 0.06f);
+                crossbar.GetComponent<Renderer>().sharedMaterial = poleMat;
+                SafeDestroyCollider(crossbar);
+
+                Vector3 top = basePos + new Vector3(0f, poleHeight * 0.94f, 0f);
+                if (havePrev)
+                {
+                    Vector3 mid = (prevTop + top) * 0.5f + Vector3.down * 0.35f; // slight sag
+                    Vector3 delta = top - prevTop;
+                    var wire = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    wire.name = $"Wire_{i}";
+                    wire.transform.SetParent(root.transform);
+                    wire.transform.position = mid;
+                    wire.transform.rotation = Quaternion.FromToRotation(Vector3.up, delta.normalized);
+                    wire.transform.localScale = new Vector3(0.025f, delta.magnitude * 0.5f, 0.025f);
+                    wire.GetComponent<Renderer>().sharedMaterial = wireMat;
+                    SafeDestroyCollider(wire);
+                }
+                prevTop = top;
+                havePrev = true;
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Roadside vegetation: extra shrub clusters offset to either side of
+        // a normalized-space path, so the routes the player actually walks
+        // read as lined with greenery. Skips any spot too close to an
+        // existing occupied point (buildings/POIs/trees) so it never
+        // overlaps something already placed.
+        // ---------------------------------------------------------------
+        private static void LineShrubs(Transform parent, SceneBuilder.TerrainBuildResult terrain, Vector2 from01, Vector2 to01, Material[] shrubMats, List<Vector2> occupied)
+        {
+            const int stops = 10;
+            Vector2 dir = (to01 - from01);
+            Vector2 perp = Perp(dir);
+            int placed = 0;
+            for (int i = 0; i <= stops; i++)
+            {
+                float t = (float)i / stops;
+                Vector2 center = Vector2.Lerp(from01, to01, t);
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    float offset = 0.012f + Random.Range(0f, 0.006f);
+                    Vector2 candidate = center + perp * side * offset;
+                    if (candidate.x < 0.02f || candidate.x > 0.98f || candidate.y < 0.02f || candidate.y > 0.98f) continue;
+
+                    bool tooClose = false;
+                    foreach (var occ in occupied)
+                    {
+                        if (Vector2.Distance(candidate, occ) < 0.018f) { tooClose = true; break; }
+                    }
+                    if (tooClose) continue;
+
+                    float slope = SlopeAt(terrain, candidate.x, candidate.y);
+                    if (slope > 38f) continue;
+
+                    Vector3 pos = WorldFromNormalized(terrain, candidate.x, candidate.y);
+                    KayKitIntegration.BuildShrubCluster(parent, pos);
+                    placed++;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Small wooden welcome signpost near player spawn. Reuses
+        // CreateWorldLabel's billboard text panel so it's legible from any
+        // angle, mounted on a plank instead of floating.
+        // ---------------------------------------------------------------
+        private static void BuildSignpost(Transform parent, Vector3 pos, string text)
+        {
+            var woodMat = SharedAssetUtility.CreateColorMaterial("SignpostWood", new Color(0.42f, 0.32f, 0.22f));
+            var plankMat = SharedAssetUtility.CreateColorMaterial("SignpostPlank", new Color(0.62f, 0.48f, 0.32f));
+
+            var root = new GameObject("WelcomeSignpost");
+            root.transform.SetParent(parent);
+            root.transform.position = pos;
+
+            var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            post.name = "Post";
+            post.transform.SetParent(root.transform);
+            post.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+            post.transform.localScale = new Vector3(0.09f, 1.1f, 0.09f);
+            post.GetComponent<Renderer>().sharedMaterial = woodMat;
+            SafeDestroyCollider(post);
+
+            var plank = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            plank.name = "Plank";
+            plank.transform.SetParent(root.transform);
+            plank.transform.localPosition = new Vector3(0f, 1.85f, 0f);
+            plank.transform.localScale = new Vector3(1.5f, 0.5f, 0.08f);
+            plank.GetComponent<Renderer>().sharedMaterial = plankMat;
+            SafeDestroyCollider(plank);
+
+            // Much smaller scale than the default world label (which is sized
+            // to read from several meters away at a POI) - this sign sits
+            // right next to the spawn point, so a small close-range label
+            // reads correctly instead of looming over the whole view.
+            CreateWorldLabel(root.transform, text, new Vector3(0f, 1.85f, 0.06f), scale: 0.009f);
+        }
+
+        private static void SafeDestroyCollider(GameObject go)
+        {
+            var col = go.GetComponent<Collider>();
+            if (col != null) Object.DestroyImmediate(col);
+        }
+    }
+}

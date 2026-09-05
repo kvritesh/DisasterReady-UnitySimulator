@@ -1,0 +1,501 @@
+=== KayKit Animation Diagnostic ===
+Generated: 9/5/2026 12:21:27 AM
+
+--- ModelImporter: Assets/KayKit/Adventurers/Characters/fbx/Rogue_Hooded.fbx ---
+  animationType=Generic
+  avatarSetup=NoAvatar
+  sourceAvatar=
+  importAnimation=True
+--- ModelImporter: Assets/KayKit/CharacterAnimations/Animations/fbx/Rig_Medium/Rig_Medium_MovementBasic.fbx ---
+  animationType=Generic
+  avatarSetup=NoAvatar
+  sourceAvatar=
+  importAnimation=True
+--- ModelImporter: Assets/KayKit/CharacterAnimations/Animations/fbx/Rig_Medium/Rig_Medium_General.fbx ---
+  animationType=Generic
+  avatarSetup=NoAvatar
+  sourceAvatar=
+  importAnimation=True
+
+=== Instantiated hierarchy (path relative to instance root) ===
+  DIAG_Rogue_Hooded
+  Rig_Medium
+  root
+  hips
+  spine
+  chest
+  head
+  upperarm.l
+  lowerarm.l
+  wrist.l
+  hand.l
+  handslot.l
+  upperarm.r
+  lowerarm.r
+  wrist.r
+  hand.r
+  handslot.r
+  upperleg.l
+  lowerleg.l
+  foot.l
+  toes.l
+  upperleg.r
+  lowerleg.r
+  foot.r
+  toes.r
+  RogueHooded_ArmLeft
+  RogueHooded_ArmRight
+  RogueHooded_Body
+  RogueHooded_Cape
+  RogueHooded_Head
+  RogueHooded_LegLeft
+  RogueHooded_LegRight
+  RogueHooded_Mask
+
+'Rig_Medium' found at path: Rig_Medium
+
+=== Clip curve bindings: Assets/KayKit/CharacterAnimations/Animations/fbx/Rig_Medium/Rig_Medium_MovementBasic.fbx ===
+  Clip 'Walking_B' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Running_A' length=0.80 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__T-Pose' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Jump_Full_Long' length=2.33 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Jump_Full_Short' length=1.17 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Jump_Idle' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Jump_Land' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Jump_Start' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Running_A' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Running_B' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Walking_A' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Walking_B' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Walking_C' length=1.60 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Jump_Full_Long' length=2.33 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'T-Pose' length=0.03 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Jump_Start' length=0.60 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Running_B' length=0.80 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Walking_C' length=1.60 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Jump_Full_Short' length=1.17 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Jump_Land' length=0.67 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Jump_Idle' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Walking_A' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+
+=== Clip curve bindings: Assets/KayKit/CharacterAnimations/Animations/fbx/Rig_Medium/Rig_Medium_General.fbx ===
+  Clip 'Idle_A' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__T-Pose' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Death_A' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Death_A_Pose' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Death_B' length=2.63 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Death_B_Pose' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Hit_A' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Hit_B' length=1.00 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Idle_A' length=1.07 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Idle_B' length=2.13 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Interact' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__PickUp' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Spawn_Air' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Spawn_Ground' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Throw' length=1.37 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip '__preview__Use_Item' length=1.60 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'T-Pose' length=0.03 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Throw' length=1.37 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Death_A' length=0.80 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Death_A_Pose' length=0.03 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Idle_B' length=2.13 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Interact' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Spawn_Air' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Hit_A' length=0.67 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Death_B_Pose' length=0.03 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Death_B' length=2.63 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'PickUp' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Hit_B' length=0.87 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Spawn_Ground' length=1.30 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+  Clip 'Use_Item' length=1.60 curveCount=240 uniquePathCount=24
+    path='Rig_Medium'
+    path='Rig_Medium/root'
+    path='Rig_Medium/root/hips'
+    path='Rig_Medium/root/hips/spine'
+    path='Rig_Medium/root/hips/spine/chest'
+    path='Rig_Medium/root/hips/spine/chest/head'
+    ... (18 more)
+
+=== Path resolution cross-check (Walking_B clip) ===
+  curvePath='Rig_Medium'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/head'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.l/lowerarm.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.l/lowerarm.l/wrist.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.l/lowerarm.l/wrist.l/hand.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.l/lowerarm.l/wrist.l/hand.l/handslot.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.r/lowerarm.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.r/lowerarm.r/wrist.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.r/lowerarm.r/wrist.r/hand.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/spine/chest/upperarm.r/lowerarm.r/wrist.r/hand.r/handslot.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.l/lowerleg.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.l/lowerleg.l/foot.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.l/lowerleg.l/foot.l/toes.l'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.r/lowerleg.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.r/lowerleg.r/foot.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
+  curvePath='Rig_Medium/root/hips/upperleg.r/lowerleg.r/foot.r/toes.r'  resolvesFromInstanceRoot=True  resolvesFromRigMedium=False
