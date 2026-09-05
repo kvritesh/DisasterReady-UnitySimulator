@@ -129,6 +129,7 @@ namespace DisasterReady.EditorTools
             var vegetationFolder = CreateChild(envRoot.transform, "Vegetation");
             var rocksFolder = CreateChild(envRoot.transform, "Rocks");
             var propsFolder = CreateChild(envRoot.transform, "Props");
+            var routeMarkersFolder = CreateChild(envRoot.transform, "RouteMarkers");
 
             var hospitalFolder = CreateChild(infraRoot.transform, "Hospital");
             var shelterFolder = CreateChild(infraRoot.transform, "EmergencyShelter");
@@ -147,8 +148,14 @@ namespace DisasterReady.EditorTools
             // 3. Terraced Valley Floor & Retaining Walls
             BuildTerracedValley(terrainFolder.transform, rocksFolder.transform);
 
+            // 3b. Ramp-edge guardrail bollards (terrain readability)
+            BuildRampGuardrails(terrainFolder.transform);
+
             // 4. Perimeter Mountain Amphitheater & High Summit
             Vector3 summitPeakPos = BuildMountains(mountainsFolder.transform, terrainFolder.transform);
+
+            // 4b. Summit safe-zone edge marking & signage (visual polish)
+            BuildSummitSafetyFeatures(mountainsFolder.transform, summitPeakPos);
 
             // 5. Contoured Road Network (Flush on ground surface)
             BuildRoadNetwork(envRoadsFolder.transform, infraRoadsFolder.transform, terrainFolder.transform);
@@ -156,11 +163,17 @@ namespace DisasterReady.EditorTools
             // 6. Hospital Complex
             Vector3 hospitalPos = BuildHospitalComplex(hospitalFolder.transform, infraRoadsFolder.transform);
 
+            // 6b. Hospital realism/readability detail pass
+            BuildHospitalDetailPass(hospitalFolder.transform, hospitalPos);
+
             // 7. Emergency Shelter Complex
             Vector3 shelterPos = BuildShelterComplex(shelterFolder.transform, infraRoadsFolder.transform);
 
             // 8. Disaster Storytelling (Landslide Hazard Zone)
             BuildLandslideHazardZone(barriersFolder.transform, rocksFolder.transform, signsFolder.transform, envRoadsFolder.transform);
+
+            // 8b. Landslide storytelling detail pass (hazard tape, rubble, damaged wall)
+            BuildLandslideDetailPass(barriersFolder.transform, rocksFolder.transform, signsFolder.transform);
 
             // 9. Terraced Residential Settlement
             BuildResidentialSettlement(buildingsFolder.transform, propsFolder.transform);
@@ -171,6 +184,9 @@ namespace DisasterReady.EditorTools
             // 11. Navigation Waypoint Anchors
             Vector3 spawnPos = new Vector3(0f, 0.52f, -32f);
             BuildNavigationAnchors(mainRouteFolder.transform, hospRouteFolder.transform, shelterRouteFolder.transform, summitRouteFolder.transform, spawnPos, hospitalPos, shelterPos, summitPeakPos);
+
+            // 11b. In-world evacuation route markers (environmental, not screen UI)
+            BuildRouteMarkers(routeMarkersFolder.transform);
 
             // 12. DisasterReady Gameplay Systems Integration
             var gpResult = IntegrateGameplay(gpRoot.transform, spawnPos, hospitalPos, shelterPos, summitPeakPos);
@@ -1477,6 +1493,235 @@ namespace DisasterReady.EditorTools
             cam.targetTexture = prevRt;
             RenderTexture.active = prevActive;
             UnityEngine.Object.DestroyImmediate(rt);
+        }
+
+        private static void BuildRampGuardrails(Transform terrainParent)
+        {
+            // Simple bollard markers at each terrace-climb's top edge, reinforcing where the
+            // ground drops away next to the road. Purely decorative, non-colliding.
+            var bollardMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            bollardMat.color = new Color(0.95f, 0.82f, 0.12f);
+
+            void Bollard(string name, Vector3 pos)
+            {
+                var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                post.name = name;
+                post.transform.SetParent(terrainParent, false);
+                post.transform.position = pos;
+                post.transform.localScale = new Vector3(0.12f, 0.55f, 0.12f);
+                UnityEngine.Object.DestroyImmediate(post.GetComponent<Collider>());
+                post.GetComponent<Renderer>().sharedMaterial = bollardMat;
+            }
+
+            // Level 0 -> Level 1 (road resumes ~Y=2.99, Z=-11.5)
+            Bollard("Guardrail_L0L1_L", new Vector3(-2.3f, 3.54f, -11.3f));
+            Bollard("Guardrail_L0L1_R", new Vector3(2.3f, 3.54f, -11.3f));
+
+            // Level 1 -> Level 2 (road resumes ~Y=5.99, Z=17.5)
+            Bollard("Guardrail_L1L2_L", new Vector3(-2.3f, 6.54f, 17.3f));
+            Bollard("Guardrail_L1L2_R", new Vector3(2.3f, 6.54f, 17.3f));
+
+            // Level 2 -> Level 3 (trailhead surface ~Y=8.96, Z=48)
+            Bollard("Guardrail_L2L3_L", new Vector3(-2.3f, 9.51f, 46.7f));
+            Bollard("Guardrail_L2L3_R", new Vector3(2.3f, 9.51f, 46.7f));
+        }
+
+        private static void BuildSummitSafetyFeatures(Transform mountainsParent, Vector3 summitPos)
+        {
+            // The summit lookout deck (Ground_SummitDeck_Base) is a ~12x12 flat tile centered at
+            // (0, 12.8, 62), i.e. roughly X:[-6,6] Z:[56,68]. Existing props (bench, comms mast,
+            // POI beacon) sit around Z=60.5-62, so the new edge rail/sign/flag are placed on the
+            // far (north) edge and west corner, clear of them.
+            float deckY = summitPos.y - 0.24f; // matches existing bench/mast height (13.26)
+
+            var railMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            railMat.color = new Color(0.92f, 0.92f, 0.90f);
+
+            var rail = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            rail.name = "Summit_SafetyRail_NorthEdge";
+            rail.transform.SetParent(mountainsParent, false);
+            rail.transform.position = new Vector3(summitPos.x, deckY, summitPos.z + 5.3f);
+            rail.transform.localScale = new Vector3(9.5f, 0.5f, 0.08f);
+            UnityEngine.Object.DestroyImmediate(rail.GetComponent<Collider>());
+            rail.GetComponent<Renderer>().sharedMaterial = railMat;
+
+            void RailPost(string name, float xOffset)
+            {
+                var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                post.name = name;
+                post.transform.SetParent(mountainsParent, false);
+                post.transform.position = new Vector3(summitPos.x + xOffset, deckY, summitPos.z + 5.3f);
+                post.transform.localScale = new Vector3(0.08f, 0.5f, 0.08f);
+                UnityEngine.Object.DestroyImmediate(post.GetComponent<Collider>());
+                post.GetComponent<Renderer>().sharedMaterial = railMat;
+            }
+            RailPost("Summit_SafetyRail_PostL", -4.9f);
+            RailPost("Summit_SafetyRail_PostR", 4.9f);
+
+            // Safe Zone assembly signage, facing back toward players arriving from the stairs
+            CreateSignpost(mountainsParent, new Vector3(summitPos.x, deckY, summitPos.z + 3.5f), "SAFE ZONE\nASSEMBLY POINT", 180f, SignType.Welcome);
+
+            // Small marker flag on a pole, west side of the deck
+            var poleGO = new GameObject("Summit_SafeZoneFlagpole");
+            poleGO.transform.SetParent(mountainsParent, false);
+            poleGO.transform.position = new Vector3(summitPos.x - 4.5f, deckY, summitPos.z + 3.5f);
+
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pole.name = "Pole";
+            pole.transform.SetParent(poleGO.transform, false);
+            pole.transform.localScale = new Vector3(0.06f, 1.4f, 0.06f);
+            pole.transform.localPosition = new Vector3(0f, 1.4f, 0f);
+            UnityEngine.Object.DestroyImmediate(pole.GetComponent<Collider>());
+            var poleMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            poleMat.color = new Color(0.30f, 0.30f, 0.30f);
+            pole.GetComponent<Renderer>().sharedMaterial = poleMat;
+
+            var flag = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            flag.name = "Flag";
+            flag.transform.SetParent(poleGO.transform, false);
+            flag.transform.localScale = new Vector3(0.6f, 0.4f, 0.02f);
+            flag.transform.localPosition = new Vector3(0.32f, 2.55f, 0f);
+            UnityEngine.Object.DestroyImmediate(flag.GetComponent<Collider>());
+            var flagMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            flagMat.color = new Color(0.10f, 0.70f, 0.35f);
+            flag.GetComponent<Renderer>().sharedMaterial = flagMat;
+        }
+
+        private static void BuildHospitalDetailPass(Transform hospitalFolder, Vector3 hospEntrancePos)
+        {
+            // Fire hydrant near the apron for grounded realism
+            string hydrantFbx = $"{KayKitCityDir}/firehydrant.fbx";
+            var hydrantPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(hydrantFbx);
+            if (hydrantPrefab != null)
+            {
+                var hyd = (GameObject)PrefabUtility.InstantiatePrefab(hydrantPrefab, hospitalFolder);
+                hyd.name = "Hospital_FireHydrant";
+                hyd.transform.position = new Vector3(-22.5f, 3.02f, 3.5f);
+                hyd.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
+                hyd.transform.localScale = Vector3.one * 1.3f;
+                StripColliders(hyd);
+            }
+
+            // Painted helipad marking on the courtyard apron (reinforces "emergency response")
+            var padMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            padMat.color = Color.white;
+            var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pad.name = "Hospital_HelipadMarking";
+            pad.transform.SetParent(hospitalFolder, false);
+            pad.transform.position = new Vector3(-18f, 3.02f, 6f);
+            pad.transform.localScale = new Vector3(2.2f, 0.01f, 2.2f);
+            UnityEngine.Object.DestroyImmediate(pad.GetComponent<Collider>());
+            pad.GetComponent<Renderer>().sharedMaterial = padMat;
+
+            var hCanvasGO = new GameObject("HelipadLabelCanvas");
+            hCanvasGO.transform.SetParent(hospitalFolder, false);
+            hCanvasGO.transform.position = new Vector3(-18f, 3.04f, 6f);
+            hCanvasGO.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+            var hCanvas = hCanvasGO.AddComponent<Canvas>();
+            hCanvas.renderMode = RenderMode.WorldSpace;
+            var hTextGO = new GameObject("H");
+            hTextGO.transform.SetParent(hCanvasGO.transform, false);
+            var hText = hTextGO.AddComponent<Text>();
+            hText.text = "H";
+            hText.font = UIBuilder.GetDefaultFont();
+            hText.fontSize = 80;
+            hText.fontStyle = FontStyle.Bold;
+            hText.alignment = TextAnchor.MiddleCenter;
+            hText.color = new Color(0.85f, 0.1f, 0.1f);
+            hText.rectTransform.sizeDelta = new Vector2(200f, 200f);
+            hTextGO.transform.localScale = Vector3.one * 0.01f;
+        }
+
+        private static void BuildLandslideDetailPass(Transform barriersFolder, Transform rocksFolder, Transform signsFolder)
+        {
+            // Hazard tape strung between two posts, reinforcing the cone-marked closed lane
+            var tapeMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            tapeMat.color = new Color(0.95f, 0.75f, 0.1f);
+
+            var tapePostL = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            tapePostL.name = "Landslide_TapePost_L";
+            tapePostL.transform.SetParent(barriersFolder, false);
+            tapePostL.transform.position = new Vector3(-6f, 0.85f, -20.2f);
+            tapePostL.transform.localScale = new Vector3(0.07f, 0.55f, 0.07f);
+            UnityEngine.Object.DestroyImmediate(tapePostL.GetComponent<Collider>());
+            tapePostL.GetComponent<Renderer>().sharedMaterial = tapeMat;
+
+            var tapePostR = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            tapePostR.name = "Landslide_TapePost_R";
+            tapePostR.transform.SetParent(barriersFolder, false);
+            tapePostR.transform.position = new Vector3(-6f, 0.85f, -23.8f);
+            tapePostR.transform.localScale = new Vector3(0.07f, 0.55f, 0.07f);
+            UnityEngine.Object.DestroyImmediate(tapePostR.GetComponent<Collider>());
+            tapePostR.GetComponent<Renderer>().sharedMaterial = tapeMat;
+
+            var tapeStrip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            tapeStrip.name = "Landslide_HazardTape";
+            tapeStrip.transform.SetParent(barriersFolder, false);
+            tapeStrip.transform.position = new Vector3(-6f, 1.15f, -22f);
+            tapeStrip.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+            tapeStrip.transform.localScale = new Vector3(3.6f, 0.12f, 0.02f);
+            UnityEngine.Object.DestroyImmediate(tapeStrip.GetComponent<Collider>());
+            tapeStrip.GetComponent<Renderer>().sharedMaterial = tapeMat;
+
+            // Extra rubble scattered directly on the collapsed road tile
+            var smallRockPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SyntyRock01Prefab);
+            if (smallRockPrefab != null)
+            {
+                Vector3[] rubbleSpots = {
+                    new Vector3(-11f, 0.55f, -21.3f),
+                    new Vector3(-12.5f, 0.6f, -22.4f),
+                    new Vector3(-10f, 0.5f, -22.8f),
+                };
+                for (int i = 0; i < rubbleSpots.Length; i++)
+                {
+                    var rub = (GameObject)PrefabUtility.InstantiatePrefab(smallRockPrefab, rocksFolder);
+                    rub.name = $"Landslide_RoadRubble_{i}";
+                    rub.transform.position = rubbleSpots[i];
+                    rub.transform.rotation = Quaternion.Euler(UnityEngine.Random.Range(-15f, 15f), UnityEngine.Random.Range(0f, 360f), UnityEngine.Random.Range(-15f, 15f));
+                    rub.transform.localScale = Vector3.one * UnityEngine.Random.Range(0.8f, 1.3f);
+                    StripColliders(rub);
+                }
+            }
+
+            // Damaged infrastructure: a partially collapsed wall section, tilted in the debris
+            var wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Synty/PolygonStarter/Prefabs/SM_PolygonPrototype_Buildings_WallWindow_2x3_01P.prefab");
+            if (wallPrefab != null)
+            {
+                var wall = (GameObject)PrefabUtility.InstantiatePrefab(wallPrefab, barriersFolder);
+                wall.name = "Landslide_CollapsedWallSection";
+                wall.transform.position = new Vector3(-16.5f, 0.9f, -23.5f);
+                wall.transform.rotation = Quaternion.Euler(0f, 25f, 35f);
+                wall.transform.localScale = Vector3.one * 1.4f;
+                StripColliders(wall);
+                SetStaticFlags(wall);
+            }
+        }
+
+        private static void BuildRouteMarkers(Transform routeMarkersFolder)
+        {
+            string arrowPath = "Assets/Synty/PolygonStarter/Prefabs/SM_PolygonPrototype_Icon_Arrow_Small_01.prefab";
+            var arrowPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(arrowPath);
+            if (arrowPrefab == null) return;
+
+            var arrowMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            arrowMat.color = new Color(0.15f, 0.85f, 0.35f);
+
+            void PlaceArrow(string name, Vector3 pos, float yaw)
+            {
+                var a = (GameObject)PrefabUtility.InstantiatePrefab(arrowPrefab, routeMarkersFolder);
+                a.name = name;
+                a.transform.position = pos;
+                a.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+                a.transform.localScale = Vector3.one * 1.4f;
+                StripColliders(a);
+                foreach (var rend in a.GetComponentsInChildren<Renderer>()) rend.sharedMaterial = arrowMat;
+            }
+
+            // Pointing north (+Z), up-valley, at the base of each climb toward the summit
+            PlaceArrow("RouteMarker_ToL1", new Vector3(2.6f, 0.55f, -17f), 0f);
+            PlaceArrow("RouteMarker_ToL2", new Vector3(2.6f, 3.05f, 13f), 0f);
+            PlaceArrow("RouteMarker_ToL3", new Vector3(2.6f, 6.05f, 39f), 0f);
+            PlaceArrow("RouteMarker_ToSummit", new Vector3(2.2f, 9.05f, 49f), 0f);
         }
     }
 }
