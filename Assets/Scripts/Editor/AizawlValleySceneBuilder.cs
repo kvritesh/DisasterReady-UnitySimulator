@@ -1073,14 +1073,25 @@ namespace DisasterReady.EditorTools
             };
 
             // 1. Level 0 Suburban Houses (flanking entrance road)
+            // COMPOSITION FIX: these four houses previously all instantiated the SAME
+            // syntyHousePrefab as mirrored pairs -- the strongest "copy-pasted asset" cue
+            // in the scene, visible in the very first frame at spawn. Two unused KayKit
+            // variants (G, E) now flank each pair so spawn and the L2 ridge each read as
+            // two distinct buildings instead of a mirror image of one.
+            var houseVariantG = AssetDatabase.LoadAssetAtPath<GameObject>($"{KayKitCityDir}/building_G.fbx");
+            var houseVariantE = AssetDatabase.LoadAssetAtPath<GameObject>($"{KayKitCityDir}/building_E.fbx");
             if (syntyHousePrefab != null)
             {
-                PlaceBuilding(syntyHousePrefab, buildingsFolder, "House_L0_West", new Vector3(-15f, 0.5f, -34f), Quaternion.Euler(0f, 85f, 0f), Vector3.one * 0.9f);
-                PlaceBuilding(syntyHousePrefab, buildingsFolder, "House_L0_East", new Vector3( 15f, 0.5f, -34f), Quaternion.Euler(0f, -85f, 0f), Vector3.one * 0.9f);
+                var l0West = houseVariantG != null ? houseVariantG : syntyHousePrefab;
+                var l0East = houseVariantE != null ? houseVariantE : syntyHousePrefab;
+                PlaceBuilding(l0West, buildingsFolder, "House_L0_West", new Vector3(-15f, 0.5f, -34f), Quaternion.Euler(0f, 85f, 0f), Vector3.one * 2.0f);
+                PlaceBuilding(l0East, buildingsFolder, "House_L0_East", new Vector3( 15f, 0.5f, -34f), Quaternion.Euler(0f, -85f, 0f), Vector3.one * 2.0f);
 
                 // Level 2 Upper Ridge Houses
-                PlaceBuilding(syntyHousePrefab, buildingsFolder, "House_L2_West", new Vector3(-12f, 6.0f, 33f), Quaternion.Euler(0f, 85f, 0f), Vector3.one * 0.9f);
-                PlaceBuilding(syntyHousePrefab, buildingsFolder, "House_L2_East", new Vector3( 12f, 6.0f, 33f), Quaternion.Euler(0f, -85f, 0f), Vector3.one * 0.9f);
+                var l2West = houseVariantE != null ? houseVariantE : syntyHousePrefab;
+                var l2East = houseVariantG != null ? houseVariantG : syntyHousePrefab;
+                PlaceBuilding(l2West, buildingsFolder, "House_L2_West", new Vector3(-12f, 6.0f, 33f), Quaternion.Euler(0f, 85f, 0f), Vector3.one * 2.0f);
+                PlaceBuilding(l2East, buildingsFolder, "House_L2_East", new Vector3( 12f, 6.0f, 33f), Quaternion.Euler(0f, -85f, 0f), Vector3.one * 2.0f);
             }
 
             // 2. Level 1 Town Center Houses (lining the town street)
@@ -1903,7 +1914,7 @@ namespace DisasterReady.EditorTools
 
             // West fringe: one cluster south of the landslide, one north of it near the ramp —
             // framing the hazard with intact housing rather than overlapping it.
-            House(new Vector3(-9f, 0.5f, -31.5f), 110f, 0.9f, true);
+            House(new Vector3(-9f, 0.5f, -31.5f), 110f, 0.9f, false); // was a mirrored duplicate of the synty house directly flanking spawn -- switched to a KayKit variant for real variety
             House(new Vector3(-13f, 0.5f, -16.5f), 75f, 2.2f, false);
 
             // --- Level 1: Mid-slope neighborhood between the town street and the branch roads ---
@@ -1913,12 +1924,36 @@ namespace DisasterReady.EditorTools
             House(new Vector3(11f, 3.0f, 8f), -90f, 2.2f, false);
 
             // Parked cars for street life
+            // COMPOSITION FIX: only 2 vehicles existed in the whole valley, making every
+            // road read as an empty highway rather than a lived-in settlement. Added
+            // variety along both road tiers, plus a police car stopped at the landslide
+            // barrier as a cheap emergency-response storytelling beat.
             string sedanFbx = $"{KayKitCityDir}/car_sedan.fbx";
             var sedanPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(sedanFbx);
             if (sedanPrefab != null)
             {
                 PlaceVehicle(sedanPrefab, propsFolder, "ParkedCar_L1_West", new Vector3(-8.5f, 3.02f, 4f), Quaternion.Euler(0f, 90f, 0f));
                 PlaceVehicle(sedanPrefab, propsFolder, "ParkedCar_L0_East", new Vector3(11.5f, 0.51f, -22f), Quaternion.Euler(0f, -90f, 0f));
+            }
+            var hatchbackPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KayKitCityDir}/car_hatchback.fbx");
+            if (hatchbackPrefab != null)
+            {
+                PlaceVehicle(hatchbackPrefab, propsFolder, "ParkedCar_L0_West", new Vector3(-9.5f, 0.51f, -28f), Quaternion.Euler(0f, 95f, 0f));
+            }
+            var taxiPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KayKitCityDir}/car_taxi.fbx");
+            if (taxiPrefab != null)
+            {
+                PlaceVehicle(taxiPrefab, propsFolder, "ParkedCar_L1_East", new Vector3(8.5f, 3.02f, -1f), Quaternion.Euler(0f, -100f, 0f));
+            }
+            var stationwagonPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KayKitCityDir}/car_stationwagon.fbx");
+            if (stationwagonPrefab != null)
+            {
+                PlaceVehicle(stationwagonPrefab, propsFolder, "ParkedCar_L1_North", new Vector3(-9f, 3.02f, 9.5f), Quaternion.Euler(0f, 85f, 0f));
+            }
+            var policeCarPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KayKitCityDir}/car_police.fbx");
+            if (policeCarPrefab != null)
+            {
+                PlaceVehicle(policeCarPrefab, propsFolder, "PoliceCar_LandslideResponse", new Vector3(2.2f, 0.46f, -16.2f), Quaternion.Euler(0f, 20f, 0f));
             }
 
             // --- Level 2: Upper Residential Ridge fill (between the spine and the existing X=12 houses) ---
