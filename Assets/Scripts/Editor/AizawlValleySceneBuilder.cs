@@ -68,11 +68,11 @@ namespace DisasterReady.EditorTools
         {
             EditorApplication.delayCall += () =>
             {
-                if (EditorApplication.isPlaying)
+                // Play Mode always wins: never force-exit Play Mode and never rebuild
+                // while entering, inside, or exiting a Play Mode session. Auto-build
+                // only runs during genuine Edit Mode initialization.
+                if (EditorApplication.isPlayingOrWillChangePlaymode)
                 {
-                    Debug.Log("[AizawlValleySceneBuilder] Exiting Play Mode first...");
-                    EditorApplication.isPlaying = false;
-                    EditorApplication.playModeStateChanged += OnPlayModeChanged;
                     return;
                 }
                 if (!_autoBuildDone)
