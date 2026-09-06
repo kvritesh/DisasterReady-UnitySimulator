@@ -157,6 +157,9 @@ namespace DisasterReady.EditorTools
             // 4b. Summit safe-zone edge marking & signage (visual polish)
             BuildSummitSafetyFeatures(mountainsFolder.transform, summitPeakPos);
 
+            // 4c. Distant background settlement silhouette (macro composition)
+            BuildBackgroundSettlementSilhouette(mountainsFolder.transform);
+
             // 5. Contoured Road Network (Flush on ground surface)
             BuildRoadNetwork(envRoadsFolder.transform, infraRoadsFolder.transform, terrainFolder.transform);
 
@@ -175,8 +178,14 @@ namespace DisasterReady.EditorTools
             // 8b. Landslide storytelling detail pass (hazard tape, rubble, damaged wall)
             BuildLandslideDetailPass(barriersFolder.transform, rocksFolder.transform, signsFolder.transform);
 
+            // 8c. Landslide hero set piece upgrade (vertical slice pass)
+            BuildLandslideHeroUpgrade(barriersFolder.transform, rocksFolder.transform, signsFolder.transform);
+
             // 9. Terraced Residential Settlement
             BuildResidentialSettlement(buildingsFolder.transform, propsFolder.transform);
+
+            // 9b. Hillside residential density fill (vertical slice pass)
+            BuildHillsideResidentialClusters(buildingsFolder.transform, propsFolder.transform, vegetationFolder.transform);
 
             // 10. Vegetation & Mountain Trees
             BuildVegetationAndRocks(vegetationFolder.transform, rocksFolder.transform);
@@ -218,7 +227,7 @@ namespace DisasterReady.EditorTools
             var light = sunGO.AddComponent<Light>();
             light.type = LightType.Directional;
             light.color = new Color(1f, 0.96f, 0.88f);
-            light.intensity = 1.35f;
+            light.intensity = 1.5f;
             light.shadows = LightShadows.Soft;
             light.shadowStrength = 0.7f;
             sunGO.transform.rotation = Quaternion.Euler(48f, 32f, 0f);
@@ -230,7 +239,7 @@ namespace DisasterReady.EditorTools
 
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Exponential;
-            RenderSettings.fogDensity = 0.0035f;
+            RenderSettings.fogDensity = 0.0028f;
             RenderSettings.fogColor = new Color(0.72f, 0.82f, 0.90f);
 
             var skyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SyntySkyDomePrefab);
@@ -1722,6 +1731,207 @@ namespace DisasterReady.EditorTools
             PlaceArrow("RouteMarker_ToL2", new Vector3(2.6f, 3.05f, 13f), 0f);
             PlaceArrow("RouteMarker_ToL3", new Vector3(2.6f, 6.05f, 39f), 0f);
             PlaceArrow("RouteMarker_ToSummit", new Vector3(2.2f, 9.05f, 49f), 0f);
+        }
+
+        private static void BuildBackgroundSettlementSilhouette(Transform mountainsParent)
+        {
+            // Distant, non-collidable building silhouettes on the mountain flanks beyond the
+            // playable terraces. Purely a backdrop trick: it sells "this valley is part of a
+            // much bigger hillside city" without adding any walkable area or gameplay props.
+            string[] silhouettePaths = {
+                $"{KayKitCityDir}/building_B.fbx",
+                $"{KayKitCityDir}/building_D.fbx",
+                $"{KayKitCityDir}/building_E.fbx",
+                $"{KayKitCityDir}/building_G.fbx",
+            };
+
+            (Vector3 pos, float yaw)[] spots = {
+                (new Vector3(-38f, 0.6f, -37f), 25f),
+                (new Vector3(-44f, 1.0f, -30f), 55f),
+                (new Vector3(-42f, 3.3f,   4f), 15f),
+                (new Vector3(-37f, 3.6f,  16f), -20f),
+                (new Vector3(-36f, 6.3f,  29f), 30f),
+                (new Vector3(-30f, 6.6f,  40f), -15f),
+                (new Vector3( 38f, 0.6f, -37f), -25f),
+                (new Vector3( 44f, 1.0f, -30f), -55f),
+                (new Vector3( 42f, 3.3f,   4f), -15f),
+                (new Vector3( 37f, 3.6f,  16f), 20f),
+                (new Vector3( 36f, 6.3f,  29f), -30f),
+                (new Vector3( 30f, 6.6f,  40f), 15f),
+            };
+
+            for (int i = 0; i < spots.Length; i++)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(silhouettePaths[i % silhouettePaths.Length]);
+                if (prefab == null) continue;
+                var bldg = (GameObject)PrefabUtility.InstantiatePrefab(prefab, mountainsParent);
+                bldg.name = $"BackgroundSettlement_{i:D2}";
+                bldg.transform.position = spots[i].pos;
+                bldg.transform.rotation = Quaternion.Euler(0f, spots[i].yaw, 0f);
+                bldg.transform.localScale = Vector3.one * UnityEngine.Random.Range(1.3f, 1.9f);
+                StripColliders(bldg);
+                SetStaticFlags(bldg);
+            }
+        }
+
+        private static void BuildHillsideResidentialClusters(Transform buildingsFolder, Transform propsFolder, Transform vegFolder)
+        {
+            // Fills the large bare-grass gaps left between the existing spine road, town-center
+            // houses, and the hospital/shelter branch roads with small, thoughtfully placed
+            // hillside residential clusters. Coordinates are chosen to sit on already-existing
+            // flat ground tiles and to stay clear of the landslide zone (X:[-19,-4] Z:[-26,-18]
+            // at Level 0), the hospital/shelter branch roads (Z=-8 at Level 1), and the central
+            // spine road (X=0 at every level).
+            var syntyHousePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SyntyHousePrefab);
+            string[] kaykitHouses = {
+                $"{KayKitCityDir}/building_A.fbx",
+                $"{KayKitCityDir}/building_B.fbx",
+                $"{KayKitCityDir}/building_D.fbx",
+                $"{KayKitCityDir}/building_F.fbx",
+                $"{KayKitCityDir}/building_H.fbx",
+            };
+
+            var wallMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            wallMat.color = new Color(0.40f, 0.38f, 0.33f);
+
+            void RetainingAccent(string name, Transform parent, Vector3 pos, Vector3 scale)
+            {
+                var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.name = name;
+                wall.transform.SetParent(parent, false);
+                wall.transform.position = pos;
+                wall.transform.localScale = scale;
+                EnsureBoxCollider(wall, Vector3.one, Vector3.zero);
+                SetStaticFlags(wall);
+                wall.GetComponent<Renderer>().sharedMaterial = wallMat;
+            }
+
+            int houseIndex = 0;
+            void House(Vector3 pos, float yaw, float scale, bool useSynty)
+            {
+                GameObject prefab = useSynty
+                    ? syntyHousePrefab
+                    : AssetDatabase.LoadAssetAtPath<GameObject>(kaykitHouses[houseIndex % kaykitHouses.Length]);
+                houseIndex++;
+                if (prefab == null) return;
+                PlaceBuilding(prefab, buildingsFolder, $"HillsideHouse_{houseIndex:D2}", pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one * scale);
+            }
+
+            // --- Level 0: Lower Valley fringe clusters (clear of the landslide bounding box) ---
+            // East fringe (open ground, no hazard nearby)
+            House(new Vector3(9f, 0.5f, -30f), -110f, 0.9f, true);
+            House(new Vector3(13f, 0.5f, -22f), -70f, 2.2f, false);
+            House(new Vector3(9f, 0.5f, -17.5f), -100f, 2.2f, false);
+            RetainingAccent("Retain_L0_East", buildingsFolder, new Vector3(15.5f, 0.75f, -23f), new Vector3(0.6f, 1.0f, 14f));
+
+            // West fringe: one cluster south of the landslide, one north of it near the ramp —
+            // framing the hazard with intact housing rather than overlapping it.
+            House(new Vector3(-9f, 0.5f, -31.5f), 110f, 0.9f, true);
+            House(new Vector3(-13f, 0.5f, -16.5f), 75f, 2.2f, false);
+
+            // --- Level 1: Mid-slope neighborhood between the town street and the branch roads ---
+            House(new Vector3(-11f, 3.0f, 0f), 90f, 2.2f, false);
+            House(new Vector3(-11f, 3.0f, 8f), 90f, 2.2f, false);
+            House(new Vector3(11f, 3.0f, 0f), -90f, 2.2f, false);
+            House(new Vector3(11f, 3.0f, 8f), -90f, 2.2f, false);
+
+            // Parked cars for street life
+            string sedanFbx = $"{KayKitCityDir}/car_sedan.fbx";
+            var sedanPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(sedanFbx);
+            if (sedanPrefab != null)
+            {
+                PlaceVehicle(sedanPrefab, propsFolder, "ParkedCar_L1_West", new Vector3(-8.5f, 3.02f, 4f), Quaternion.Euler(0f, 90f, 0f));
+                PlaceVehicle(sedanPrefab, propsFolder, "ParkedCar_L0_East", new Vector3(11.5f, 0.51f, -22f), Quaternion.Euler(0f, -90f, 0f));
+            }
+
+            // --- Level 2: Upper Residential Ridge fill (between the spine and the existing X=12 houses) ---
+            House(new Vector3(-5f, 6.0f, 27f), 100f, 0.9f, true);
+            House(new Vector3(5f, 6.0f, 27f), -100f, 2.2f, false);
+            House(new Vector3(-5f, 6.0f, 39f), 80f, 2.2f, false);
+            House(new Vector3(5f, 6.0f, 39f), -80f, 0.9f, true);
+            RetainingAccent("Retain_L2_North", buildingsFolder, new Vector3(0f, 6.3f, 43f), new Vector3(20f, 0.5f, 0.5f));
+
+            // Softening shrubs around the new clusters
+            string bushFbx = $"{KayKitForestDir}/Bush_2_A_Color1.fbx";
+            var bushPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(bushFbx);
+            if (bushPrefab != null)
+            {
+                Vector3[] extraShrubs = {
+                    new Vector3(10f, 0.1f, -25f), new Vector3(-10.5f, 2.6f, 4f),
+                    new Vector3(10.5f, 2.6f, 4f), new Vector3(-3f, 5.6f, 30f), new Vector3(3f, 5.6f, 36f),
+                };
+                for (int i = 0; i < extraShrubs.Length; i++)
+                {
+                    var shrub = (GameObject)PrefabUtility.InstantiatePrefab(bushPrefab, vegFolder);
+                    shrub.name = $"HillsideShrub_{i:D2}";
+                    shrub.transform.position = extraShrubs[i];
+                    shrub.transform.rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
+                    shrub.transform.localScale = Vector3.one * UnityEngine.Random.Range(1.2f, 1.6f);
+                    StripColliders(shrub);
+                    SetStaticFlags(shrub);
+                }
+            }
+        }
+
+        private static void BuildLandslideHeroUpgrade(Transform barriersFolder, Transform rocksFolder, Transform signsFolder)
+        {
+            Vector3 hazardCenter = new Vector3(-18f, 0.5f, -22f);
+
+            // A single oversized hero boulder, clearly larger than the surrounding debris field,
+            // resting across the collapsed road tile as the unmistakable centerpiece of the slide.
+            var heroRockPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SyntyRock03Prefab);
+            if (heroRockPrefab != null)
+            {
+                var hero = (GameObject)PrefabUtility.InstantiatePrefab(heroRockPrefab, rocksFolder);
+                hero.name = "Landslide_HeroBoulder";
+                hero.transform.position = hazardCenter + new Vector3(-1.5f, 1.1f, -0.5f);
+                hero.transform.rotation = Quaternion.Euler(15f, 50f, 5f);
+                hero.transform.localScale = Vector3.one * 5.2f;
+                EnsureMeshCollider(hero);
+                SetStaticFlags(hero);
+            }
+
+            // Striped roadblock barricade gate across the branch road entrance, well before the
+            // cones, so the "you cannot drive through here" read is unmistakable from a distance.
+            var barMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            barMat.color = new Color(0.95f, 0.75f, 0.05f);
+            var barDarkMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            barDarkMat.color = new Color(0.08f, 0.08f, 0.08f);
+
+            void BarPost(string name, Vector3 pos)
+            {
+                var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                post.name = name;
+                post.transform.SetParent(barriersFolder, false);
+                post.transform.position = pos;
+                post.transform.localScale = new Vector3(0.14f, 0.75f, 0.14f);
+                UnityEngine.Object.DestroyImmediate(post.GetComponent<Collider>());
+                post.GetComponent<Renderer>().sharedMaterial = barDarkMat;
+            }
+            BarPost("Landslide_GatePost_L", new Vector3(-3.3f, 1.0f, -20.7f));
+            BarPost("Landslide_GatePost_R", new Vector3(-3.3f, 1.0f, -23.3f));
+
+            var gateArm = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            gateArm.name = "Landslide_GateArm";
+            gateArm.transform.SetParent(barriersFolder, false);
+            gateArm.transform.position = new Vector3(-3.3f, 1.55f, -22f);
+            gateArm.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+            gateArm.transform.localScale = new Vector3(2.9f, 0.22f, 0.16f);
+            UnityEngine.Object.DestroyImmediate(gateArm.GetComponent<Collider>());
+            gateArm.GetComponent<Renderer>().sharedMaterial = barMat;
+
+            var gateStripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            gateStripe.name = "Landslide_GateArm_Stripe";
+            gateStripe.transform.SetParent(barriersFolder, false);
+            gateStripe.transform.position = new Vector3(-3.3f, 1.55f, -22f);
+            gateStripe.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+            gateStripe.transform.localScale = new Vector3(0.6f, 0.24f, 0.17f);
+            UnityEngine.Object.DestroyImmediate(gateStripe.GetComponent<Collider>());
+            gateStripe.GetComponent<Renderer>().sharedMaterial = barDarkMat;
+
+            // Detour signage at the fork itself, facing players approaching from the spawn side
+            // (south), before they would think to turn west into the closed branch.
+            CreateSignpost(signsFolder, new Vector3(-2f, 0.49f, -18.5f), "ROAD CLOSED WEST\nDETOUR: CONTINUE NORTH", 0f, SignType.Warning);
         }
     }
 }
