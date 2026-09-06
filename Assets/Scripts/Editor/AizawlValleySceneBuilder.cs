@@ -393,6 +393,44 @@ namespace DisasterReady.EditorTools
             PlaceFlatGround(flatPrefab, terrainParent, "Ground_L2_C2", new Vector3(  0f, 5.5f, 39f), new Vector3(1.5f, 1f, 1.5f));
             PlaceFlatGround(flatPrefab, terrainParent, "Ground_L2_E2", new Vector3( 12f, 5.5f, 39f), new Vector3(1.5f, 1f, 1.5f));
 
+            // Level 2 to Level 3 Berm (COMPOSITION FIX: this terrace step had no retaining
+            // structure at all, leaving a raw, unframed gap between the two flat-ground decks --
+            // exactly the "unfinished blockout" look flagged in review. Mirrors the L1->L2 berm
+            // + retaining-rock treatment for visual consistency up the whole ascent.)
+            var bermL2W = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bermL2W.name = "TerraceBerm_L2_L3_West";
+            bermL2W.transform.SetParent(terrainParent, false);
+            bermL2W.transform.position = new Vector3(-15f, 7.0f, 41.5f);
+            bermL2W.transform.localScale = new Vector3(24f, 3.0f, 2.5f);
+            EnsureBoxCollider(bermL2W, Vector3.one, Vector3.zero);
+            SetStaticFlags(bermL2W);
+            bermL2W.GetComponent<Renderer>().sharedMaterial = bermMat;
+
+            var bermL2E = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bermL2E.name = "TerraceBerm_L2_L3_East";
+            bermL2E.transform.SetParent(terrainParent, false);
+            bermL2E.transform.position = new Vector3(15f, 7.0f, 41.5f);
+            bermL2E.transform.localScale = new Vector3(24f, 3.0f, 2.5f);
+            EnsureBoxCollider(bermL2E, Vector3.one, Vector3.zero);
+            SetStaticFlags(bermL2E);
+            bermL2E.GetComponent<Renderer>().sharedMaterial = bermMat;
+
+            // Retaining Embankment Rocks along Level 2 to Level 3 step (Z = 41.5f)
+            if (rockPrefab != null)
+            {
+                for (float x = -26f; x <= 26f; x += 3.5f)
+                {
+                    if (Mathf.Abs(x) < 3.5f) continue;
+                    var r = (GameObject)PrefabUtility.InstantiatePrefab(rockPrefab, rocksFolder);
+                    r.name = $"RetainingWall_L2_L3_{x}";
+                    r.transform.position = new Vector3(x, 6.75f, 41.5f);
+                    r.transform.localScale = new Vector3(2.5f, 2.2f, 2.0f);
+                    r.transform.rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
+                    EnsureMeshCollider(r);
+                    SetStaticFlags(r);
+                }
+            }
+
             // Level 3: Trailhead & Foothills Base (Ground pos Y = 8.5f, Top surface Y = 8.96f)
             PlaceFlatGround(flatPrefab, terrainParent, "Ground_L3_Trail_1", new Vector3( 0f, 8.5f, 48f), new Vector3(1.6f, 1f, 1.5f));
             PlaceFlatGround(flatPrefab, terrainParent, "Ground_L3_Trail_2", new Vector3( 0f, 8.5f, 62f), new Vector3(1.6f, 1f, 1.5f));
