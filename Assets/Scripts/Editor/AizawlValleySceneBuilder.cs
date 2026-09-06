@@ -322,6 +322,8 @@ namespace DisasterReady.EditorTools
                 var rampMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 rampMat.color = new Color(0.24f, 0.25f, 0.26f); // Asphalt color
                 foreach (var rend in ramp.GetComponentsInChildren<Renderer>()) rend.sharedMaterial = rampMat;
+
+                SlopedRouteRamp(terrainParent, "RouteBridge_L0_L1", 0f, 0.46f, 2.96f, -14f, 10f, 12f);
             }
 
             // Level 1: Mid Valley Settlement & Civic Center (Ground pos Y = 1.85f, Top surface Y = 2.31f)
@@ -379,6 +381,8 @@ namespace DisasterReady.EditorTools
                 var rampMat2 = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 rampMat2.color = new Color(0.24f, 0.25f, 0.26f); // Asphalt color
                 foreach (var rend in ramp2.GetComponentsInChildren<Renderer>()) rend.sharedMaterial = rampMat2;
+
+                SlopedRouteRamp(terrainParent, "RouteBridge_L1_L2", 0f, 2.96f, 5.96f, 15.0f, 12f, 12f);
             }
 
             // Level 2: Upper Residential Ridge (Ground pos Y = 5.5f, Top surface Y = 5.96f)
@@ -403,6 +407,8 @@ namespace DisasterReady.EditorTools
                 var rampMat3 = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 rampMat3.color = new Color(0.48f, 0.46f, 0.40f);
                 foreach (var rend in ramp3.GetComponentsInChildren<Renderer>()) rend.sharedMaterial = rampMat3;
+
+                SlopedRouteRamp(terrainParent, "RouteBridge_L2_L3", 0f, 5.96f, 8.96f, 41.5f, 12f, 12f);
             }
         }
 
@@ -1414,6 +1420,26 @@ namespace DisasterReady.EditorTools
             bc.center = center;
         }
 
+        // ROUTE-BLOCKER FIX (SIH demo validation pass): live route-walk testing found the shared
+        // ramp prefab's MeshCollider reproducibly snags the player's CharacterController partway
+        // up the incline (not only at the top seam), across the ramp's full width. Rather than
+        // touching the protected player/physics setup, each ramp gets an invisible supplementary
+        // BoxCollider oriented to follow the true bottom-to-top slope exactly, overlapping
+        // generously into the flat ground at both ends, so there is always a clean, continuous
+        // walkable surface regardless of the mesh collider's own quirks. No renderer is added.
+        private static void SlopedRouteRamp(Transform parent, string name, float centerX, float bottomY, float topY, float centerZ, float run, float width)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            float rise = topY - bottomY;
+            go.transform.position = new Vector3(centerX, (bottomY + topY) * 0.5f, centerZ);
+            Vector3 slopeDir = new Vector3(0f, rise, run).normalized;
+            go.transform.rotation = Quaternion.LookRotation(slopeDir, Vector3.up);
+            var bc = go.AddComponent<BoxCollider>();
+            bc.size = new Vector3(width, 2.0f, run + 4f); // thick + generously overlapped at both ends
+            SetStaticFlags(go);
+        }
+
         private static void StripColliders(GameObject go)
         {
             var cols = go.GetComponentsInChildren<Collider>(true);
@@ -1807,21 +1833,34 @@ namespace DisasterReady.EditorTools
             }
 
             int houseIndex = 0;
-            void House(Vector3 pos, float yaw, float scale, bool useSynty)
+            void House(Vector3 pos, float yaw, float scale, bool useSynty, float footprint = 4f)
             {
                 GameObject prefab = useSynty
                     ? syntyHousePrefab
                     : AssetDatabase.LoadAssetAtPath<GameObject>(kaykitHouses[houseIndex % kaykitHouses.Length]);
                 houseIndex++;
                 if (prefab == null) return;
-                PlaceBuilding(prefab, buildingsFolder, $"HillsideHouse_{houseIndex:D2}", pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one * scale);
+                string goName = $"HillsideHouse_{houseIndex:D2}";
+                PlaceBuilding(prefab, buildingsFolder, goName, pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one * scale);
+                // ROUTE-BLOCKER FIX (SIH demo validation pass): PlaceBuilding's default 4x4x4
+                // collider, at scale 2.2 and rotated, over-extends past the visual mesh and can
+                // snag the main spine road. Tighten the footprint on houses placed close to the
+                // route instead of changing the shared default (which other buildings rely on).
+                if (!Mathf.Approximately(footprint, 4f))
+                {
+                    var placed = buildingsFolder.Find(goName);
+                    if (placed != null)
+                    {
+                        EnsureBoxCollider(placed.gameObject, new Vector3(footprint, 4f, footprint), new Vector3(0f, 2f, 0f));
+                    }
+                }
             }
 
             // --- Level 0: Lower Valley fringe clusters (clear of the landslide bounding box) ---
             // East fringe (open ground, no hazard nearby)
             House(new Vector3(9f, 0.5f, -30f), -110f, 0.9f, true);
             House(new Vector3(13f, 0.5f, -22f), -70f, 2.2f, false);
-            House(new Vector3(9f, 0.5f, -17.5f), -100f, 2.2f, false);
+            House(new Vector3(9f, 0.5f, -17.5f), -100f, 2.2f, false, 2.0f); // tightened: default box collider was snagging the main spine road at ~X3.9,Z-17.6
             RetainingAccent("Retain_L0_East", buildingsFolder, new Vector3(15.5f, 0.75f, -23f), new Vector3(0.6f, 1.0f, 14f));
 
             // West fringe: one cluster south of the landslide, one north of it near the ramp —
