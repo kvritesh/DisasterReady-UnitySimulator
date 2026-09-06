@@ -1957,10 +1957,14 @@ namespace DisasterReady.EditorTools
             }
 
             // --- Level 2: Upper Residential Ridge fill (between the spine and the existing X=12 houses) ---
-            House(new Vector3(-5f, 6.0f, 27f), 100f, 0.9f, true);
-            House(new Vector3(5f, 6.0f, 27f), -100f, 2.2f, false);
-            House(new Vector3(-5f, 6.0f, 39f), 80f, 2.2f, false);
-            House(new Vector3(5f, 6.0f, 39f), -80f, 0.9f, true);
+            // CLEARANCE FIX (live playtest, gameplay camera): at X=+/-5 these sat close enough to
+            // the X=0 spine that a player walking straight up the route brushed directly against
+            // a flat, featureless wall filling most of the screen. Pulled out to X=+/-7 to give the
+            // corridor real breathing room, matching the spacing used by the Level 1 houses at X=11.
+            House(new Vector3(-9f, 6.0f, 27f), 100f, 0.9f, true);
+            House(new Vector3(9f, 6.0f, 27f), -100f, 2.2f, false);
+            House(new Vector3(-9f, 6.0f, 39f), 80f, 2.2f, false);
+            House(new Vector3(9f, 6.0f, 39f), -80f, 0.9f, true);
             RetainingAccent("Retain_L2_North", buildingsFolder, new Vector3(0f, 6.3f, 43f), new Vector3(20f, 0.5f, 0.5f));
 
             // Softening shrubs around the new clusters
