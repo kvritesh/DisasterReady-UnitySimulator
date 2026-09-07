@@ -25,6 +25,18 @@ not backed by individual historical commits.
   magenta. Fixed by updating the existing asset in place instead of
   delete+recreate.
 - WebGL rebuild + full regression pass for this milestone: pending.
+- Autonomous polish pass on the Aizawl Valley scene builder: added a
+  3-sign wayfinding cluster at the central junction (Hospital/Shelter/
+  Summit directions, all three routes meet there) so the busiest
+  decision point on the route is legible before committing to a
+  direction; hid the Terrain Info HUD panel in this scene (it can never
+  show real data here -- no terrain data provider is registered for
+  this flat-tile-terrace scene, only for the separate heightmap-based
+  demo scene) so it stops competing with the real mission/XP HUD; added
+  a read-only `DisasterReady/Validate Scene References` editor tool that
+  checks player/camera/mission/emergency/POI wiring without touching the
+  scene. All changes are builder-reproducible (re-apply on every rebuild)
+  and documented in the three handoff docs.
 
 ## v0.7 — Web ↔ Unity Integration
 - `Assets/Plugins/WebGL/WebGLBridge.jslib` bridge (`DR_GetLaunchParams` /
