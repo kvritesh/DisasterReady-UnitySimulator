@@ -163,6 +163,9 @@ namespace DisasterReady.EditorTools
             // 5. Contoured Road Network (Flush on ground surface)
             BuildRoadNetwork(envRoadsFolder.transform, infraRoadsFolder.transform, terrainFolder.transform);
 
+            // 5b. Central Junction Wayfinding Signage (landmark/navigation readability pass)
+            BuildJunctionWayfinding(signsFolder.transform);
+
             // 6. Hospital Complex
             Vector3 hospitalPos = BuildHospitalComplex(hospitalFolder.transform, infraRoadsFolder.transform);
 
@@ -751,6 +754,22 @@ SlopedRouteRamp(terrainParent, "RouteBridge_L2_L3", 0f, 5.96f, 8.96f, 41.5f, 5f,
             SetStaticFlags(go);
         }
         private enum SignType { Warning, Medical, Shelter, Welcome }
+
+        // ENV POLISH (autonomous polish pass): the central junction is the busiest decision
+        // point on the whole route -- three roads meet here (west to Hospital, east to
+        // Shelter, north continuing toward the Summit) -- but it previously had zero
+        // wayfinding signage of its own; each destination only advertised itself at its own
+        // entrance, well after the player had already committed to a direction. Adds a small
+        // fingerpost-style sign cluster on the east shoulder (X=3, clear of the X=0 spine
+        // road's 2m-wide collider and of the branch roads at Z=-8) so the choice is legible
+        // right at the junction. Purely cosmetic/informational -- no colliders, no mission
+        // logic touched.
+        private static void BuildJunctionWayfinding(Transform signsFolder)
+        {
+            CreateSignpost(signsFolder, new Vector3(3.0f, 2.99f, -9.0f), "HOSPITAL\nWEST AT JUNCTION", 0f, SignType.Medical);
+            CreateSignpost(signsFolder, new Vector3(3.0f, 2.99f, -7.0f), "EMERGENCY SHELTER\nEAST AT JUNCTION", 0f, SignType.Shelter);
+            CreateSignpost(signsFolder, new Vector3(3.0f, 2.99f, -5.0f), "SUMMIT / HIGHEST POINT\nCONTINUE NORTH", 0f, SignType.Welcome);
+        }
 
         private static Vector3 BuildHospitalComplex(Transform hospitalFolder, Transform roadsParent)
         {
@@ -1413,6 +1432,23 @@ SlopedRouteRamp(terrainParent, "RouteBridge_L2_L3", 0f, 5.96f, 8.96f, 41.5f, 5f,
 
             // 4. UI Canvas & Systems
             var uiResult = UIBuilder.Build();
+
+            // UI POLISH (autonomous polish pass): the Terrain Info panel (Elevation/Slope/
+            // Terrain readout) can never show real data in THIS scene -- no
+            // ITerrainDataProvider is ever registered here (that only happens in the
+            // separate DisasterReadyDemo scene's Unity-Terrain pipeline). Left on, it would
+            // sit on screen for the entire playthrough permanently reading placeholder
+            // "Elevation: -- m / Slope: --deg / Terrain: --", competing for attention right
+            // next to the real mission/XP HUD. Hiding it here (rather than editing the
+            // shared UIBuilder, which the other scene still needs working) keeps this a
+            // scene-specific, builder-reproducible fix per the "don't let manual polish be
+            // silently destroyed by a rebuild" rule -- it re-applies every time BuildScene()
+            // runs, and UIBuilder itself is untouched.
+            if (uiResult.TerrainInfo != null && uiResult.TerrainInfo.ElevationText != null)
+            {
+                uiResult.TerrainInfo.enabled = false;
+                uiResult.TerrainInfo.ElevationText.transform.parent.gameObject.SetActive(false);
+            }
 
             // 5. Mission Manager
             var missionManagerGO = new GameObject("MissionManager");
