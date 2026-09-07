@@ -259,9 +259,9 @@ namespace DisasterReady.EditorTools
             var rockPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SyntyRock02Prefab);
 
             // Foundational Valley Underlay (ensures zero skybox/void gaps anywhere in the valley basin)
-            PlaceFlatGround(flatPrefab, terrainParent, "Ground_Underlay_L0", new Vector3(0f, -0.3f, -30f), new Vector3(4.0f, 1f, 3.2f));
-            PlaceFlatGround(flatPrefab, terrainParent, "Ground_Underlay_L1", new Vector3(0f,  1.4f,   6f), new Vector3(4.5f, 1f, 3.2f));
-            PlaceFlatGround(flatPrefab, terrainParent, "Ground_Underlay_L2", new Vector3(0f,  4.2f,  36f), new Vector3(4.0f, 1f, 2.5f));
+            PlaceFlatGround(flatPrefab, terrainParent, "Ground_Underlay_L0", new Vector3(0f, -0.3f, -30f), new Vector3(4.0f, 1f, 3.2f), false);
+            PlaceFlatGround(flatPrefab, terrainParent, "Ground_Underlay_L1", new Vector3(0f,  1.4f,   6f), new Vector3(4.5f, 1f, 3.2f), false);
+            PlaceFlatGround(flatPrefab, terrainParent, "Ground_Underlay_L2", new Vector3(0f,  4.2f,  36f), new Vector3(4.0f, 1f, 2.5f), false);
 
             // Level 0: Lower Valley & Entrance Basin (Ground pos Y = 0f, Top surface Y = 0.46f)
             // 6 overlapping tiles covering X = [-30, 30], Z = [-44, -12]
@@ -317,13 +317,30 @@ namespace DisasterReady.EditorTools
                 ramp.name = "Ramp_L0_to_L1";
                 ramp.transform.position = new Vector3(0f, 0.46f, -14f);
                 ramp.transform.localScale = new Vector3(4.0f, 2.5f, 4.5f);
-                EnsureMeshCollider(ramp);
+                // ROUTE-BLOCKER FIX (root cause, live playtest): EnsureMeshCollider attaches a
+                // NON-CONVEX MeshCollider, which Unity's CharacterController cannot reliably walk
+                // on -- it is the actual source of every "snag partway up the incline" repro this
+                // session (confirmed hard-stuck here on live position readouts with zero further
+                // movement, i.e. a genuine perpendicular collision, not an input issue). The
+                // invisible SlopedRouteRamp box below is purpose-built as a clean walkable slope,
+                // so this visual mesh no longer needs (or should have) its own physical collider.
+                StripColliders(ramp);
                 SetStaticFlags(ramp);
                 var rampMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 rampMat.color = new Color(0.24f, 0.25f, 0.26f); // Asphalt color
                 foreach (var rend in ramp.GetComponentsInChildren<Renderer>()) rend.sharedMaterial = rampMat;
 
-                SlopedRouteRamp(terrainParent, "RouteBridge_L0_L1", 0f, 0.46f, 2.96f, -14f, 10f, 12f);
+                                // ROUTE-BLOCKER FIX (root cause, live playtest): this box's "run" previously
+                // spread the rise over 10-12 units while the VISUAL ramp mesh it is supposed to
+                // shadow only spans ~4.5-5 units (its own localScale.z) -- a 2x+ slope-rate
+                // mismatch. For most of the ramp's length the invisible walkable surface sat
+                // 0.3-0.5m below (or above) the real terrain grade, and the CharacterController
+                // (Slope Limit 45) reproducibly refused to climb the resulting seam, hard-stopping
+                // well short of the flat ground above (confirmed via live Transform readouts:
+                // player stuck at a fixed Y/Z with zero further movement under continuous input,
+                // i.e. a genuine collision, not an input problem). Matching "run" to the real
+                // mesh's footprint makes the invisible slope track the visual one exactly.
+SlopedRouteRamp(terrainParent, "RouteBridge_L0_L1", 0f, 0.46f, 2.96f, -14f, 4.5f, 12f);
             }
 
             // Level 1: Mid Valley Settlement & Civic Center (Ground pos Y = 1.85f, Top surface Y = 2.31f)
@@ -376,13 +393,30 @@ namespace DisasterReady.EditorTools
                 ramp2.name = "Ramp_L1_to_L2";
                 ramp2.transform.position = new Vector3(0f, 2.96f, 15.0f);
                 ramp2.transform.localScale = new Vector3(4.0f, 3.0f, 5.0f);
-                EnsureMeshCollider(ramp2);
+                // ROUTE-BLOCKER FIX (root cause, live playtest): EnsureMeshCollider attaches a
+                // NON-CONVEX MeshCollider, which Unity's CharacterController cannot reliably walk
+                // on -- it is the actual source of every "snag partway up the incline" repro this
+                // session (confirmed hard-stuck here on live position readouts with zero further
+                // movement, i.e. a genuine perpendicular collision, not an input issue). The
+                // invisible SlopedRouteRamp box below is purpose-built as a clean walkable slope,
+                // so this visual mesh no longer needs (or should have) its own physical collider.
+                StripColliders(ramp2);
                 SetStaticFlags(ramp2);
                 var rampMat2 = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 rampMat2.color = new Color(0.24f, 0.25f, 0.26f); // Asphalt color
                 foreach (var rend in ramp2.GetComponentsInChildren<Renderer>()) rend.sharedMaterial = rampMat2;
 
-                SlopedRouteRamp(terrainParent, "RouteBridge_L1_L2", 0f, 2.96f, 5.96f, 15.0f, 12f, 12f);
+                                // ROUTE-BLOCKER FIX (root cause, live playtest): this box's "run" previously
+                // spread the rise over 10-12 units while the VISUAL ramp mesh it is supposed to
+                // shadow only spans ~4.5-5 units (its own localScale.z) -- a 2x+ slope-rate
+                // mismatch. For most of the ramp's length the invisible walkable surface sat
+                // 0.3-0.5m below (or above) the real terrain grade, and the CharacterController
+                // (Slope Limit 45) reproducibly refused to climb the resulting seam, hard-stopping
+                // well short of the flat ground above (confirmed via live Transform readouts:
+                // player stuck at a fixed Y/Z with zero further movement under continuous input,
+                // i.e. a genuine collision, not an input problem). Matching "run" to the real
+                // mesh's footprint makes the invisible slope track the visual one exactly.
+SlopedRouteRamp(terrainParent, "RouteBridge_L1_L2", 0f, 2.96f, 5.96f, 15.0f, 5f, 12f);
             }
 
             // Level 2: Upper Residential Ridge (Ground pos Y = 5.5f, Top surface Y = 5.96f)
@@ -440,24 +474,49 @@ namespace DisasterReady.EditorTools
                 ramp3.name = "Ramp_L2_to_L3";
                 ramp3.transform.position = new Vector3(0f, 5.96f, 41.5f);
                 ramp3.transform.localScale = new Vector3(4.0f, 3.0f, 5.0f);
-                EnsureMeshCollider(ramp3);
+                // ROUTE-BLOCKER FIX (root cause, live playtest): EnsureMeshCollider attaches a
+                // NON-CONVEX MeshCollider, which Unity's CharacterController cannot reliably walk
+                // on -- it is the actual source of every "snag partway up the incline" repro this
+                // session (confirmed hard-stuck here on live position readouts with zero further
+                // movement, i.e. a genuine perpendicular collision, not an input issue). The
+                // invisible SlopedRouteRamp box below is purpose-built as a clean walkable slope,
+                // so this visual mesh no longer needs (or should have) its own physical collider.
+                StripColliders(ramp3);
                 SetStaticFlags(ramp3);
                 var rampMat3 = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 rampMat3.color = new Color(0.48f, 0.46f, 0.40f);
                 foreach (var rend in ramp3.GetComponentsInChildren<Renderer>()) rend.sharedMaterial = rampMat3;
 
-                SlopedRouteRamp(terrainParent, "RouteBridge_L2_L3", 0f, 5.96f, 8.96f, 41.5f, 12f, 12f);
+                                // ROUTE-BLOCKER FIX (root cause, live playtest): this box's "run" previously
+                // spread the rise over 10-12 units while the VISUAL ramp mesh it is supposed to
+                // shadow only spans ~4.5-5 units (its own localScale.z) -- a 2x+ slope-rate
+                // mismatch. For most of the ramp's length the invisible walkable surface sat
+                // 0.3-0.5m below (or above) the real terrain grade, and the CharacterController
+                // (Slope Limit 45) reproducibly refused to climb the resulting seam, hard-stopping
+                // well short of the flat ground above (confirmed via live Transform readouts:
+                // player stuck at a fixed Y/Z with zero further movement under continuous input,
+                // i.e. a genuine collision, not an input problem). Matching "run" to the real
+                // mesh's footprint makes the invisible slope track the visual one exactly.
+SlopedRouteRamp(terrainParent, "RouteBridge_L2_L3", 0f, 5.96f, 8.96f, 41.5f, 5f, 12f);
             }
         }
 
-        private static void PlaceFlatGround(GameObject prefab, Transform parent, string name, Vector3 pos, Vector3 scale)
+        private static void PlaceFlatGround(GameObject prefab, Transform parent, string name, Vector3 pos, Vector3 scale, bool addCollider = true)
         {
             if (prefab == null) return;
             var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
             go.name = name;
             go.transform.position = pos;
             go.transform.localScale = scale;
-            EnsureMeshCollider(go);
+            // BLOCKER FIX (live playtest, gameplay camera): "Underlay" tiles exist purely to
+            // hide skybox/void gaps beneath the real walkable ground -- they were never meant
+            // to be touched by the player. Giving them a physical MeshCollider (as every other
+            // flat-ground tile gets) risked an invisible obstruction if the generic ground
+            // prefab's own mesh thickness poked up past the real walkable surface above it --
+            // exactly the kind of untouchable, hard-to-diagnose snag reproduced on the L2->L3
+            // approach near Z=36-37, directly above Ground_Underlay_L2 (center Z=36). Underlay
+            // callers now pass addCollider:false so they stay purely visual.
+            if (addCollider) EnsureMeshCollider(go);
             SetStaticFlags(go);
         }
 
@@ -653,20 +712,31 @@ namespace DisasterReady.EditorTools
             // 3. Level 2 Residential Ridge Road (Flush at Y = 5.99f) from Z = 17.5 to 37.5
             for (float z = 17.5f; z <= 37.5f; z += 2.0f)
             {
-                PlaceRoadStraight(straightFbx, envRoadsParent, $"Road_L2_Spine_{z}", new Vector3(0f, 5.99f, z), 90f);
+                var spineTile = PlaceRoadStraight(straightFbx, envRoadsParent, $"Road_L2_Spine_{z}", new Vector3(0f, 5.99f, z), 90f);
+                // ROUTE-BLOCKER FIX (live playtest): this flush road strip's own box collider top
+                // (Y=5.99+0.05+0.075=6.115) sits ~0.15-0.3m above/astride the invisible
+                // SlopedRouteRamp box that starts climbing toward Level 3 around Z=37 -- two
+                // overlapping walkable colliders at slightly different heights right where the
+                // ramp begins, which reproducibly hard-stopped the CharacterController exactly at
+                // this seam (confirmed via live Transform readouts: stuck at a fixed Y/Z under
+                // continuous forward input). The flat Ground_L2 tile at Z=39 already covers this
+                // ground (Z 31.5-46.5), so the last couple of road-strip colliders here are
+                // redundant; stripping them removes the seam without leaving any gap.
+                if (spineTile != null && z >= 35.5f) StripColliders(spineTile);
             }
         }
 
-        private static void PlaceRoadStraight(string fbxPath, Transform parent, string name, Vector3 pos, float yaw, float pitch = 0f)
+        private static GameObject PlaceRoadStraight(string fbxPath, Transform parent, string name, Vector3 pos, float yaw, float pitch = 0f)
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
-            if (prefab == null) return;
+            if (prefab == null) return null;
             var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
             go.name = name;
             go.transform.position = pos;
             go.transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
             EnsureBoxCollider(go, new Vector3(2.0f, 0.15f, 2.0f), new Vector3(0f, 0.05f, 0f));
             SetStaticFlags(go);
+            return go;
         }
 
         private static void PlaceRoadTile(string fbxPath, Transform parent, string name, Vector3 pos, Quaternion rot)
@@ -1090,8 +1160,15 @@ namespace DisasterReady.EditorTools
                 // Level 2 Upper Ridge Houses
                 var l2West = houseVariantE != null ? houseVariantE : syntyHousePrefab;
                 var l2East = houseVariantG != null ? houseVariantG : syntyHousePrefab;
-                PlaceBuilding(l2West, buildingsFolder, "House_L2_West", new Vector3(-12f, 6.0f, 33f), Quaternion.Euler(0f, 85f, 0f), Vector3.one * 2.0f);
-                PlaceBuilding(l2East, buildingsFolder, "House_L2_East", new Vector3( 12f, 6.0f, 33f), Quaternion.Euler(0f, -85f, 0f), Vector3.one * 2.0f);
+                // ROUTE-BLOCKER FIX (live playtest): at scale 2.0 and a near-90-degree
+                // rotation, this Synty building's long axis swings close to parallel with
+                // the world X axis -- at the original X=+/-12 pivot its footprint reached
+                // far enough toward the X=0 spine to physically shove the CharacterController
+                // (reproduced live: player knocked to a non-cardinal rotation and hard-stopped
+                // right around Z=33-38, the same Z range as this building). Pulled out to
+                // X=+/-17 for real clearance from the walkable corridor.
+                PlaceBuilding(l2West, buildingsFolder, "House_L2_West", new Vector3(-17f, 6.0f, 33f), Quaternion.Euler(0f, 85f, 0f), Vector3.one * 2.0f);
+                PlaceBuilding(l2East, buildingsFolder, "House_L2_East", new Vector3( 17f, 6.0f, 33f), Quaternion.Euler(0f, -85f, 0f), Vector3.one * 2.0f);
             }
 
             // 2. Level 1 Town Center Houses (lining the town street)
@@ -1485,7 +1562,16 @@ namespace DisasterReady.EditorTools
             Vector3 slopeDir = new Vector3(0f, rise, run).normalized;
             go.transform.rotation = Quaternion.LookRotation(slopeDir, Vector3.up);
             var bc = go.AddComponent<BoxCollider>();
-            bc.size = new Vector3(width, 2.0f, run + 4f); // thick + generously overlapped at both ends
+            // HEADROOM FIX (live playtest, gameplay camera): at the original 2.0m height, this box
+            // -- centered exactly on the nominal ramp surface -- protruded ~1m ABOVE the walkable
+            // ramp mesh along its whole length, a low invisible ceiling the CharacterController
+            // could snag on while climbing (reproduced hard-blocking the L2->L3 ascent). Reduced
+            // height (in place, center unchanged) keeps fall-through protection at both the
+            // embedded bottom and the seam-covering ends, while cutting the above-surface
+            // protrusion enough for the controller to pass. (A first attempt shifted the whole
+            // box's center down instead; that under-covered the L1->L2 seam and regressed a
+            // previously-working climb, so this in-place height trim replaces it.)
+            bc.size = new Vector3(width, 1.6f, run + 4f); // thick enough to avoid falling through skin-width gaps, still thin enough to clear headroom
             SetStaticFlags(go);
         }
 
