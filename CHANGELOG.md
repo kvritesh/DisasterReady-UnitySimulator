@@ -37,6 +37,11 @@ not backed by individual historical commits.
   checks player/camera/mission/emergency/POI wiring without touching the
   scene. All changes are builder-reproducible (re-apply on every rebuild)
   and documented in the three handoff docs.
+- Added a second read-only editor tool, `DisasterReady/Project Health Check`,
+  covering project-wide checks the scene validator doesn't (Build Settings,
+  required packages, project settings, a WebGL-unsafe-API scan, missing
+  scripts/prefabs/materials, duplicate mission ids). Verified clean (35 PASS,
+  0 WARN, 0 FAIL) against the current project.
 
 ## v0.7 — Web ↔ Unity Integration
 - `Assets/Plugins/WebGL/WebGLBridge.jslib` bridge (`DR_GetLaunchParams` /
